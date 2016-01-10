@@ -1,11 +1,19 @@
+import java.util.{Calendar, Date}
+
 import diamond.io.{CSVSink, CSVSource}
+import diamond.models.{AttributeType, Event, Feature}
+import diamond.store.{FeatureStore, FeatureStoreRepository}
 import diamond.transformation.TransformationContext
 import diamond.transformation.row.{AppendColumnRowTransformation, RowTransformation}
 import diamond.transformation.sql.NamedSQLTransformation
 import diamond.transformation.table.RowTransformationPipeline
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.{SparkConf, SparkContext}
+
+import scala.reflect.io.Path
+import scala.util.Try
 
 /**
   * Created by markmo on 12/12/2015.
@@ -237,6 +245,10 @@ class WorkflowSpec extends UnitSpec {
   }
 
   it should "read from a Source and write to a Sink" in {
+    // remove out_path if already exists
+    val out = Path("/tmp/workflow_spec_out_csv")
+    Try(out.deleteRecursively())
+
     val source = CSVSource(sqlContext)
 
     val sink = CSVSink(sqlContext)
@@ -244,7 +256,7 @@ class WorkflowSpec extends UnitSpec {
     val ctx = new TransformationContext
     ctx("in_path", path)
     ctx("schema", inputSchema)
-    ctx("out_path", "/tmp/workflow_spec_out_csv")
+    ctx("out_path", out.toString)
 
     val pipeline = new RowTransformationPipeline("test")
     pipeline.addTransformations(AddFiveTransform, HelloTransform, WorldTransform, FiftyTransform)
@@ -262,7 +274,7 @@ class WorkflowSpec extends UnitSpec {
 
     val results = transform(sqlContext)
 
-    results.take(1).foreach(println)
+//    results.take(1).foreach(println)
 
     results.collect().length should be > 10
   }
@@ -273,9 +285,96 @@ class WorkflowSpec extends UnitSpec {
 
     val results = transform(sqlContext)
 
-    results.take(1).foreach(println)
+//    results.take(1).foreach(println)
 
     results.collect().length should be > 10
+  }
+
+  "A Feature Store Repository" should "save features to a dictionary file and load back in" in {
+    import diamond.models.AttributeType._
+
+    val feature1 = Feature("feature1", Base, "test", "string", "Test feature", active = true)
+    val feature2 = Feature("feature2", Base, "test", "string", "Test feature", active = true)
+
+    val store = new FeatureStore
+    store.registerFeature(feature1)
+    store.registerFeature(feature2)
+
+    val repo = new FeatureStoreRepository
+    repo.save(store)
+
+    val loadedStore = repo.load()
+    val features = loadedStore.registeredFeatures
+
+    features.length should be (2)
+
+    features(0).attribute should equal("feature1")
+  }
+
+  "A Snapshot" should "return a snapshot view of features" in {
+    import diamond.transformation.PivotFunctions._
+    import diamond.transformation.functions._
+
+    val events: RDD[Event] = rawDF.map { row =>
+      Event(
+        hashKey(row.getAs[String]("entityIdType") + row.getAs[String]("entityId")),
+        row.getAs[String]("attribute"),
+        convertStringToDate(row.getAs[String]("ts"), "yyyy-MM-dd"),
+        "test",
+        row.getAs[String]("value"),
+        row.getAs[String]("properties"),
+        "events_sample.csv",
+        "test",
+        new Date(),
+        1
+      )
+    }
+
+//    events.foreach(println)
+
+//    println("Events Count:" + events.count())
+
+    val store = new FeatureStore
+
+    store.registerFeature(Feature("745", AttributeType.Base, "test", "string", "Attribute 745", active = true))
+
+    val cal = Calendar.getInstance()
+
+    val snap = snapshot(events, cal.getTime, store)
+
+//    snap.take(10).foreach(println)
+
+//    println("Snapshot Count:" + snap.count())
+
+    snap.count() should be (48)
+
+    cal.set(2013, 2, 31)
+
+//    val dt = cal.getTime
+//    val dateFiltered = events.filter(ev => {
+//      println(s"${ev.ts} ~ $dt")
+//      ev.ts.before(dt) || ev.ts.equals(dt)
+//    })
+//    dateFiltered.foreach(println)
+
+    val filtered = snap.filter { r =>
+      r.head == hashKey("607" + "2016565915")
+    }
+//    filtered.foreach(println)
+    filtered.collect()(0)(1) should equal ("2")
+
+    val snap2 = snapshot(events, cal.getTime, store)
+
+//    snap2.foreach(println)
+//    println("Snapshot Count:" + snap2.count())
+
+    snap2.count() should be (6)
+
+    val filtered2 = snap2.filter { r =>
+      r.head == hashKey("607" + "2016565915")
+    }
+//    filtered2.foreach(println)
+    filtered2.collect()(0)(1) should equal ("1")
   }
 
   /* WIP - NOT READY

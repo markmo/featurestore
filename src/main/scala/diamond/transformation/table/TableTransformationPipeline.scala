@@ -13,9 +13,8 @@ class TableTransformationPipeline extends Pipeline {
 
   val transformations = mutable.Set[TableTransformation]()
 
-  def apply(df: DataFrame, ctx: TransformationContext): DataFrame = {
+  def apply(df: DataFrame, ctx: TransformationContext): DataFrame =
     sortedTransformations.foldLeft(df)((d, t) => t(d, ctx))
-  }
 
   def addTransformations(transformations: TableTransformation*) {
     this.transformations ++= transformations

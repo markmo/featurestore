@@ -7,7 +7,7 @@ import scala.collection.mutable
 /**
   * Created by markmo on 30/11/2015.
   */
-class FeatureStore {
+class FeatureStore extends Serializable {
 
   val registeredFeatures = mutable.ArrayBuffer[Feature]()
 

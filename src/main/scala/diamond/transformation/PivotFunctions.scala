@@ -19,17 +19,19 @@ object PivotFunctions {
     * At a high-level, chord extractions are typically performed when preparing feature vectors for model training.
     * Snapshot extractions are typically performed when preparing feature vectors for model scoring.
     */
-  def snapshot(events: RDD[Event], dt: Date, store: FeatureStore) =
+  def snapshot(events: RDD[Event], dt: Date, store: FeatureStore): RDD[Seq[Any]] =
     events
-      .filter(ev => ev.ts.after(dt) && (ev.ts.before(dt) || ev.ts.equals(dt)))
-      .map(ev => (ev.entity, ev)).groupByKey
+      .filter(ev => ev.ts.before(dt) || ev.ts.equals(dt))
+      .map(ev => (ev.entity, ev))
+      .groupByKey
       .map {
         case (key, evs) =>
           val latestEvents =
             evs
               // group all events for entity by type
               // returns Map(type -> List((type, event)))
-              .map(ev => (ev.attribute, ev)).groupBy(_._1)
+              .map(ev => (ev.attribute, ev))
+              .groupBy(_._1)
 
               // return the event in the first tuple
               // sorted by latest first
@@ -45,7 +47,7 @@ object PivotFunctions {
           val features = store.registeredFeatures.map(ev => featureMap.getOrElse(ev.attribute, null))
 
           // merge the key tuple to return a flat list
-          key ++ features
+          List(key) ++ features
       }
 
   /**
@@ -55,8 +57,9 @@ object PivotFunctions {
     */
   def chord(events: RDD[Event], attribute: String, dt: Date, store: FeatureStore) =
     events
-      .filter(ev => ev.ts.after(dt) && (ev.ts.before(dt) || ev.ts.equals(dt)))
-      .map(ev => (ev.entity, ev)).groupByKey
+      .filter(ev => ev.ts.before(dt) || ev.ts.equals(dt))
+      .map(ev => (ev.entity, ev))
+      .groupByKey
       .map {
         case (key, evs) =>
           // group all events for entity by type
@@ -82,7 +85,7 @@ object PivotFunctions {
             val features = store.registeredFeatures.map(ev => featureMap.getOrElse(ev.attribute, null))
 
             // merge the key tuple to return a flat list
-            List(syncTime) ++ key ++ features
+            List(syncTime) ++ List(key) ++ features
           } else {
             Nil
           }
