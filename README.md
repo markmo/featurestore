@@ -4,6 +4,66 @@ Building blocks and patterns for building data prep transformations in Spark.
 
 For example:
 
+Convert from this
+    
+    schema
+     |-- entityIdType: string (nullable = true)
+     |-- entityId: string (nullable = true)
+     |-- attribute: string (nullable = true)
+     |-- ts: string (nullable = true)
+     |-- value: string (nullable = true)
+     |-- properties: string (nullable = true)
+     |-- processTime: string (nullable = true)
+
+    [607,2030076520,745,2013-01-29 00:00:00+10,1,15724,04:03.9]
+    [607,2013046983,745,2013-01-24 00:00:00+10,1,15724,04:03.9]
+    [607,2021006929,745,2013-01-31 00:00:00+10,1,15724,04:03.9]
+
+to this
+
+    schema
+     |-- entityIdType: string (nullable = true)
+     |-- entityId: string (nullable = true)
+     |-- attribute: string (nullable = true)
+     |-- ts: string (nullable = true)
+     |-- value: string (nullable = true)
+     |-- properties: string (nullable = true)
+     |-- processTime: string (nullable = true)
+     |-- column_7: integer (nullable = true)
+     |-- column_8: integer (nullable = true)
+
+    [607,2030076520,Hello World 745,2013-01-29 00:00:00+10,1,15724,04:03.9,50,55]
+    [607,2013046983,Hello World 745,2013-01-24 00:00:00+10,1,15724,04:03.9,50,55]
+    [607,2021006929,Hello World 745,2013-01-31 00:00:00+10,1,15724,04:03.9,50,55]
+
+by constructing the following pipeline of transformations
+
+      +-----+ 
+      |World| 
+      +-----+ 
+         |    
+         v    
+      +-----+ 
+      |Hello| 
+      +-----+ 
+         |    
+         v    
+      +-----+ 
+      |Fifty| 
+      +-----+ 
+         |    
+         v    
+     +-------+
+     |AddFive|
+     +-------+
+
+* [World] - Prepends the text "World" to field 3
+* [Hello] - Prepends the text "Hello" to field 3
+* [Fifty] - Appends a new column (column_7) with the value 50
+* [AddFive] - Appends a new column (column_8) with the value of 5 added to column_7
+
+The transformations must be performed in the appropriate sequence as show above.
+
     val Transform = RowTransformation
     val AppendColumn = AppendColumnRowTransformation
 

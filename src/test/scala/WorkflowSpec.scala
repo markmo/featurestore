@@ -224,15 +224,21 @@ class WorkflowSpec extends UnitSpec {
 
     // print some results
 
+//    rawDF.take(3).foreach(println)
+
+//    println {
+//      rawDF.printSchema()
+//    }
+
 //    println {
 //      results.printSchema()
 //    }
 
 //    results.take(3).foreach(println)
 
-//    println {
-//      pipeline.printDAG()
-//    }
+    println {
+      pipeline.printDAG()
+    }
 
     // our tests
     val first = results.take(1)(0)
