@@ -7,6 +7,12 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable
 
 /**
+  * A general row transformation that takes a Row and returns a new Row.
+  *
+  * The new Row may conform to a different schema. The new Row may be
+  * computed with reference to any values in the original Row or to any
+  * values in the TransformationContext.
+  *
   * Created by markmo on 12/12/2015.
   */
 trait RowTransformation extends Transformation {

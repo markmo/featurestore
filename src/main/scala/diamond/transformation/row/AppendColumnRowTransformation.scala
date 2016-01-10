@@ -5,6 +5,12 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{DataType, StringType, StructField}
 
 /**
+  * Appends a new column value to a row.
+  *
+  * Instead of implementing `apply`, the developer implements `append`,
+  * which returns the new value. The value may be calculated with reference
+  * to any other value in the Row or to the TransformationContext.
+  *
   * Created by markmo on 12/12/2015.
   */
 trait AppendColumnRowTransformation extends RowTransformation {

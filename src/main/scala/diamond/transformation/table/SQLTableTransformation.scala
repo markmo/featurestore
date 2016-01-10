@@ -4,6 +4,11 @@ import diamond.transformation.TransformationContext
 import org.apache.spark.sql.DataFrame
 
 /**
+  * Uses Spark SQL given a query string (sql) to construct a new DataFrame.
+  *
+  * The new DataFrame may be computed with reference to the existing DataFrame,
+  * e.g. projection, and to any values in the TransformationContext.
+  *
   * Created by markmo on 16/12/2015.
   */
 trait SQLTableTransformation extends TableTransformation {

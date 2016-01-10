@@ -202,6 +202,62 @@ A Pipeline consists of one or more Transformations.
 
 ![Class Hierarchy](./images/class_hierarchy.png)
 
+A [Pipeline](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/Pipeline.scala) can consist of:
+
+* An optional Source
+* One or more Transformations
+* An optional Sink
+
+The signatures of each are as follows:
+
+__Source__
+
+    def apply(ctx: TransformationContext): DataFrame
+    
+A [Source](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Source.scala) takes a [TransformationContext](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/TransformationContext.scala) and returns a [Spark DataFrame](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.DataFrame).
+
+A [TransformationContext](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/TransformationContext.scala) is passed like a baton from one step of the Pipeline to the next. It is a hashmap of data, which supplies parameters as well as enabling data to be passed to future steps.
+
+A DataFrame is a distributed collection of data organized into named columns. It is conceptually equivalent to a data frame in R/Python, but with richer optimizations under the hood. DataFrames can be constructed from a wide array of sources such as: structured data files, tables in Hive, external databases, or existing RDDs.
+    
+__Sink__
+
+    def apply(df: DataFrame, ctx: TransformationContext): DataFrame
+
+A [Sink](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Sink.scala) takes a DataFrame and TransformationContext, persists the data to storage, and returns the DataFrame.
+    
+__TableTransformation__
+
+    def apply(df: DataFrame, ctx: TransformationContext): DataFrame
+
+A [TableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/TableTransformation.scala) takes a DataFrame and TransformationContext, and returns a new transformed DataFrame.
+
+__RowTransformation__
+
+    def apply(row: Row, ctx: TransformationContext): Row
+
+A [RowTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/row/RowTransformation.scala) takes a [Spark Row object](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.Row) and TransformationContext, and returns a new transformed Row.
+
+Pipelines can be composed into larger pipelines.
+
+![Complex Pipeline Example](./images/pipeline_example.png)
+
+The following template transformations exist.
+
+Transformations may be applied at a per-row level or on the table as a whole, e.g. group-by aggregations.
+
+Row-level transformations:
+
+* [AppendColumnRowTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/row/AppendColumnRowTransformation.scala) - Appends a new column value to a row. Instead of implementing `apply`, the developer implements `append`, which returns the new value. The value may be calculated with reference to any other value in the Row or to the TransformationContext.
+* [RowTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/row/RowTransformation.scala) - A general row transformation that takes a Row and returns a new Row. The new Row may conform to a different schema. The new Row may be computed with reference to any values in the original Row or to any values in the TransformationContext.
+
+Table-level transformations:
+
+* [NamedSQLTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/NamedSQLTableTransformation.scala) - Uses Spark SQL given a named query (queryName) from a configuration file (propsPath) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
+* [SQLTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/SQLTableTransformation.scala) - Uses Spark SQL given a query string (sql) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
+* [TableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/TableTransformation.scala) - A general table-level transformation that takes a DataFrame and returns a new DataFrame. The new DataFrame may conform to a different schema. It may be computed with reference to the original DataFrame or to any values in the TransformationContext.
+* [RowTransformationPipeline](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/RowTransformationPipeline.scala) - A RowTransformationPipeline takes a DataFrame and applies a Pipeline of row-level transformations to return a new DataFrame. The supplied DataFrame and TransformationContext are provided as inputs to the Pipeline.
+
 ## Dependencies
 
 * Apache Spark 1.5.2
@@ -209,3 +265,9 @@ A Pipeline consists of one or more Transformations.
 * Spark-CSV 1.3.0
 * https://github.com/tototoshi/scala-csv v1.2.2
 * ScalaTest v2.2.4
+
+## TODO
+
+* Binary compatibility with transformations in the Spark MLlib Pipeline API
+* Consider use of the Datasets API. A Dataset is a new experimental interface added in Spark 1.6 that tries to provide the benefits of RDDs (strong typing, ability to use powerful lambda functions) with the benefits of Spark SQL’s optimized execution engine.
+* Consider supplying an explicit schema parameter to transformation functions.

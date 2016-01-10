@@ -9,6 +9,12 @@ import org.apache.spark.sql.types.StructType
 import scala.collection.mutable
 
 /**
+  * A RowTransformationPipeline takes a DataFrame and applies a Pipeline
+  * of row-level transformations to return a new DataFrame.
+  *
+  * The supplied DataFrame and TransformationContext are provided as inputs
+  * to the Pipeline.
+  *
   * Created by markmo on 12/12/2015.
   */
 class RowTransformationPipeline(private var nm: String) extends TableTransformation with Pipeline {
