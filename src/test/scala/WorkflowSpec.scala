@@ -242,11 +242,8 @@ class WorkflowSpec extends UnitSpec {
 
     // our tests
     val first = results.take(1)(0)
-
     first.getString(2).startsWith("Hello World") should be(true)
-
     first.getInt(7) should be(50)
-
     first.getInt(8) should be(55)
   }
 
@@ -313,7 +310,6 @@ class WorkflowSpec extends UnitSpec {
     val features = loadedStore.registeredFeatures
 
     features.length should be (2)
-
     features(0).attribute should equal("feature1")
   }
 
