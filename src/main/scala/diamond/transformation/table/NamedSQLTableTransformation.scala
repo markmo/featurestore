@@ -1,41 +1,48 @@
 package diamond.transformation.table
 
 import diamond.transformation.TransformationContext
+import diamond.transformation.sql.SQLLoader
 import org.apache.spark.sql.DataFrame
 
 /**
   * Created by markmo on 16/12/2015.
   */
-trait SQLTableTransformation extends TableTransformation {
+trait NamedSQLTableTransformation extends TableTransformation {
 
   val tableName: String
 
-  val sql: String
+  val propsPath: String
+
+  val queryName: String
 
   def apply(df: DataFrame, ctx: TransformationContext): DataFrame = {
-    df.registerTempTable(tableName)
-    df.sqlContext.sql(sql)
+    val sqlMap = SQLLoader.load(propsPath)
+    df.sqlContext.sql(sqlMap(name))
   }
 
 }
 
-object SQLTableTransformation {
+object NamedSQLTableTransformation {
 
   def apply(name: String,
             tableName: String,
-            sql: String
+            propsPath: String,
+            queryName: String
            )(op: (DataFrame, TransformationContext) => DataFrame) = {
     val myName = name
     val myTableName = tableName
-    val mySql = sql
+    val myPropsPath = propsPath
+    val myQueryName = queryName
 
-    new SQLTableTransformation {
+    new NamedSQLTableTransformation {
 
       val name = myName
 
       val tableName = myTableName
 
-      val sql = mySql
+      val propsPath = myPropsPath
+
+      val queryName = myQueryName
 
       def append(df: DataFrame, ctx: TransformationContext) = op(df, ctx)
 

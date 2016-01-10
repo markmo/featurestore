@@ -2,7 +2,7 @@
 
 Building blocks and patterns for building data prep transformations in Spark.
 
-For example:
+## Example
 
 Convert from this
     
@@ -195,6 +195,12 @@ Sample result
     7f4eb0ae9276908c24a4a0d99e6d7f0cb801675e121f94b34ffaaa2caa39e4d8, 1
     f218f957e2dc6627c53288a2c88e4a06f5cf7c7b1383d3f9650895cf75b60cc2, 1
     fa7e062388a56e82cb9f515275f610c4b6b121b8b5004495be7a0ad799b676cd, 1
+
+## Concepts
+
+A Pipeline consists of one or more Transformations.
+
+![Class Hierarchy](./images/class_hierarchy.png)
 
 ## Dependencies
 
