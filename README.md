@@ -93,6 +93,49 @@ In code
     
     val results2 = transform2(sqlContext)
 
+### Pivot functions
+
+Setup
+
+    import diamond.transformation.PivotFunctions._
+    import diamond.transformation.functions._
+    import diamond.models.AttributeType._
+    
+    val cal = Calendar.getInstance()
+
+    val events: RDD[Event] = rawDF.map { row =>
+      Event(
+        hashKey(row.getAs[String]("entityIdType") + row.getAs[String]("entityId")),
+        row.getAs[String]("attribute"),
+        convertStringToDate(row.getAs[String]("ts"), "yyyy-MM-dd"),
+        "test",
+        row.getAs[String]("value"),
+        row.getAs[String]("properties"),
+        "events_sample.csv",
+        "test",
+        cal.getTime,
+        1
+      )
+    }
+
+Register features of interest
+
+    val store = new FeatureStore
+    store.registerFeature(Feature("745", Base, "test", "string", "Attribute 745", active = true))
+
+Create snapshot view of registered, active features as of today
+
+    val snap = snapshot(events, cal.getTime, store)
+
+Sample result
+
+    <hashed entity id>, <value of feature 745>
+    94ceafdc4934653fa176f9ba16b5f68beec12f1d15828d279cdcf8857936acd1, 1
+    b4eded69703cedeecfa3c9750af235c5ce79c401b593268fd34ed5a945a3e425, 1
+    7f4eb0ae9276908c24a4a0d99e6d7f0cb801675e121f94b34ffaaa2caa39e4d8, 1
+    f218f957e2dc6627c53288a2c88e4a06f5cf7c7b1383d3f9650895cf75b60cc2, 1
+    fa7e062388a56e82cb9f515275f610c4b6b121b8b5004495be7a0ad799b676cd, 1
+
 ## Dependencies
 
 * Apache Spark 1.5.2

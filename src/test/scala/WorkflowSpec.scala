@@ -315,6 +315,8 @@ class WorkflowSpec extends UnitSpec {
     import diamond.transformation.PivotFunctions._
     import diamond.transformation.functions._
 
+    val cal = Calendar.getInstance()
+
     val events: RDD[Event] = rawDF.map { row =>
       Event(
         hashKey(row.getAs[String]("entityIdType") + row.getAs[String]("entityId")),
@@ -325,7 +327,7 @@ class WorkflowSpec extends UnitSpec {
         row.getAs[String]("properties"),
         "events_sample.csv",
         "test",
-        new Date(),
+        cal.getTime,
         1
       )
     }
@@ -338,11 +340,9 @@ class WorkflowSpec extends UnitSpec {
 
     store.registerFeature(Feature("745", AttributeType.Base, "test", "string", "Attribute 745", active = true))
 
-    val cal = Calendar.getInstance()
-
     val snap = snapshot(events, cal.getTime, store)
 
-//    snap.take(10).foreach(println)
+//    snap.take(5).foreach(println)
 
 //    println("Snapshot Count:" + snap.count())
 
