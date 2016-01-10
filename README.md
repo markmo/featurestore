@@ -258,6 +258,19 @@ Table-level transformations:
 * [TableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/TableTransformation.scala) - A general table-level transformation that takes a DataFrame and returns a new DataFrame. The new DataFrame may conform to a different schema. It may be computed with reference to the original DataFrame or to any values in the TransformationContext.
 * [RowTransformationPipeline](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/RowTransformationPipeline.scala) - A RowTransformationPipeline takes a DataFrame and applies a Pipeline of row-level transformations to return a new DataFrame. The supplied DataFrame and TransformationContext are provided as inputs to the Pipeline.
 
+The following template Sources exist.
+
+* [CSVSource](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Source.scala) - Loads a DataFrame from a CSV file.
+* [ParquetSource](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Source.scala) - Loads a DataFrame from a Parquet file.
+* [SQLSource](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Source.scala) - Loads a DataFrame using Spark SQL given a named query from a SQL configuration file.
+
+Parquet is a columnar storage format available to any project in the Hadoop ecosystem, regardless of the choice of data processing framework, data model or programming language. Parquet is built from the ground up with complex nested data structures in mind, and uses the [record shredding and assembly algorithm](https://github.com/Parquet/parquet-mr/wiki/The-striping-and-assembly-algorithms-from-the-Dremel-paper) described in the Dremel paper.
+
+The following template Sinks exist.
+
+* [CSVSink](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Sink.scala) - Saves a DataFrame to a CSV file.
+* [ParquetSink](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Sink.scala) - Saves a DataFrame to a Parquet file.
+
 ## Dependencies
 
 * Apache Spark 1.5.2

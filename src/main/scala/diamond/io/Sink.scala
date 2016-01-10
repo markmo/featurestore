@@ -14,6 +14,11 @@ trait Sink {
 
 }
 
+/**
+  * Saves a DataFrame to a CSV file.
+  *
+  * @param sqlContext SQLContext
+  */
 case class CSVSink(sqlContext: SQLContext) extends Sink {
 
   /**
@@ -35,6 +40,11 @@ case class CSVSink(sqlContext: SQLContext) extends Sink {
 
 }
 
+/**
+  * Saves a DataFrame to a Parquet file.
+  *
+  * @param sqlContext SQLContext
+  */
 case class ParquetSink(sqlContext: SQLContext) extends Sink {
 
   /**

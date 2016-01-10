@@ -17,6 +17,11 @@ trait Source {
 
 }
 
+/**
+  * Loads a DataFrame from a CSV file.
+  *
+  * @param sqlContext SQLContext
+  */
 case class CSVSource(sqlContext: SQLContext) extends Source {
 
   /**
@@ -42,6 +47,11 @@ case class CSVSource(sqlContext: SQLContext) extends Source {
 
 }
 
+/**
+  * Loads a DataFrame from a Parquet file.
+  *
+  * @param sqlContext SQLContext
+  */
 case class ParquetSource(sqlContext: SQLContext) extends Source {
 
   /**
@@ -56,6 +66,11 @@ case class ParquetSource(sqlContext: SQLContext) extends Source {
 
 }
 
+/**
+  * Loads a DataFrame using Spark SQL given a named query from a SQL configuration file.
+  *
+  * @param sqlContext SQLContext
+  */
 case class SQLSource(sqlContext: SQLContext) extends Source {
 
   /**
