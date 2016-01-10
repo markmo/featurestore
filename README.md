@@ -242,6 +242,8 @@ Pipelines can be composed into larger pipelines.
 
 ![Complex Pipeline Example](./images/pipeline_example.png)
 
+## Documentation
+
 The following template transformations exist.
 
 Transformations may be applied at a per-row level or on the table as a whole, e.g. group-by aggregations.
@@ -271,6 +273,18 @@ The following template Sinks exist.
 * [CSVSink](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Sink.scala) - Saves a DataFrame to a CSV file.
 * [ParquetSink](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Sink.scala) - Saves a DataFrame to a Parquet file.
 
+The following library functions exist.
+
+* [convertStringToDate](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Converts a date string of a given pattern to a Date object.
+* [formatDateString](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Formats a date string of a given pattern to a conformed format (yyyy-MM-dd).
+* [formatDateTimeString](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Formats a date string of a given pattern to a conformed date and time format (yyyy-MM-dd HH:mm:ss).
+* [convertStringToTimestamp](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Converts a date string of a given pattern to epoch (unix) time, defined as the number of seconds that have elapsed since 00:00:00 Coordinated Universal Time (UTC), Thursday, 1 January 1970, not counting leap seconds.
+* [hashKey](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Hashes a string key using SHA-256. Used to hash entity keys, which may be composite.
+
+These functions may be accessed by including the following import statement.
+
+    import diamond.transformation.functions._
+
 ## Dependencies
 
 * Apache Spark 1.5.2
@@ -284,3 +298,4 @@ The following template Sinks exist.
 * Binary compatibility with transformations in the Spark MLlib Pipeline API
 * Consider use of the Datasets API. A Dataset is a new experimental interface added in Spark 1.6 that tries to provide the benefits of RDDs (strong typing, ability to use powerful lambda functions) with the benefits of Spark SQL’s optimized execution engine.
 * Consider supplying an explicit schema parameter to transformation functions.
+* Consider moving library functions to package object.
