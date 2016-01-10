@@ -13,10 +13,12 @@ class TransformationContext extends Serializable {
   val map = mutable.Map[String, Any]()
 
   def apply(key: String, value: Any) {
-    map(key) = value
+    map.put(key, value)
   }
 
   def apply(key: String) = map(key)
+
+  def getOrElse(key: String, default: Any) = map.getOrElse(key, default)
 
   def contains(key: String) = map.contains(key)
 

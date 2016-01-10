@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+    <comment>Test queries</comment>
+    <entry key="query1">select attribute, ts, value from events where attribute = '745'</entry>
+    <entry key="query2">select attribute, ts, value from events where entityId = '2017512160'</entry>
+</properties>

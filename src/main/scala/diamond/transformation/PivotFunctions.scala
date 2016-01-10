@@ -42,7 +42,7 @@ object PivotFunctions {
 
           // iterate through registered events finding a matching value
           // or null if not found
-          val features = store.registeredFeatures.map(ev => featureMap.getOrElse(ev, null))
+          val features = store.registeredFeatures.map(ev => featureMap.getOrElse(ev.attribute, null))
 
           // merge the key tuple to return a flat list
           key ++ features
@@ -79,7 +79,7 @@ object PivotFunctions {
 
             // iterate through registered events finding a matching value
             // or null if not found
-            val features = store.registeredFeatures.map(ev => featureMap.getOrElse(ev, null))
+            val features = store.registeredFeatures.map(ev => featureMap.getOrElse(ev.attribute, null))
 
             // merge the key tuple to return a flat list
             List(syncTime) ++ key ++ features

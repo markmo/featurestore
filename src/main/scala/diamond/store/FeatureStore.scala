@@ -1,6 +1,6 @@
 package diamond.store
 
-import diamond.models.AttributeType
+import diamond.models.Feature
 
 import scala.collection.mutable
 
@@ -9,9 +9,9 @@ import scala.collection.mutable
   */
 class FeatureStore {
 
-  val registeredFeatures = mutable.ArrayBuffer[AttributeType]()
+  val registeredFeatures = mutable.ArrayBuffer[Feature]()
 
-  def registerFeature(feature: AttributeType) =
+  def registerFeature(feature: Feature) =
     if (!registeredFeatures.contains(feature)) {
       registeredFeatures += feature
     }

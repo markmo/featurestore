@@ -4,7 +4,7 @@ import java.io.{InputStreamReader, OutputStreamWriter}
 import java.net.URI
 
 import com.github.tototoshi.csv._
-import diamond.models.AttributeType
+import diamond.models.Feature
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -28,7 +28,7 @@ class FeatureStoreRepository {
       store.registeredFeatures ++=
         reader.toStream()
           .map(_.toArray)
-          .map(AttributeType.fromArray)
+          .map(Feature.fromArray)
           .toList
     } finally {
       if (reader != null) reader.close()
