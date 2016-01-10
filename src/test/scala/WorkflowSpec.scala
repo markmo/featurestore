@@ -383,6 +383,9 @@ class WorkflowSpec extends UnitSpec {
   "DSL notation" should "execute a pipeline" in {
     import diamond.transformation._
 
+    // import helper functions such as fieldLocator
+    import RowTransformation._
+
     // create a new context object that can pass state between transformations
     val ctx = new TransformationContext
 
@@ -391,7 +394,8 @@ class WorkflowSpec extends UnitSpec {
 
     given(rawDF, ctx) {
       rows {
-        transform(name = "Hello") {
+        transform(name = "Hello") { (row, ctx) => {
+          val f = fieldLocator(row, ctx)
           Row(
             f("entityIdType"),
             f("entityId"),
@@ -401,8 +405,8 @@ class WorkflowSpec extends UnitSpec {
             f("properties"),
             f("processTime")
           )
-        } /> {
-          transform(name = "World") {
+        }} /> {
+          transform(name = "World") { (row, ctx) =>
             Row(
               row.getString(0),
               row.getString(1),
@@ -418,14 +422,14 @@ class WorkflowSpec extends UnitSpec {
           name = "AddFive",
           columnName = "column_8",
           dataType = IntegerType
-        ) {
+        ) { (row, ctx) =>
           55
         } /> {
           append(
             name = "Fifty",
             columnName = "column_7",
             dataType = IntegerType
-          ) {
+          ) { (row, ctx) =>
             50
           }
         }
