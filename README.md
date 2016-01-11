@@ -2,6 +2,10 @@
 
 Building blocks and patterns for building data prep transformations in Spark.
 
+This is not trying to be a "macro" workflow framework such as Oozie, Luigi or Azkaban, but a "micro" framework to better organize the code within a Spark App/Job.
+
+The granularity of Spark Apps/Jobs might be driven by source feeds or scoring of a particular analytical model. Jobs should be designed to maximise parallel execution based on dependency constraints, where possible, instead of timed. However, each job may encompass multiple transformations that must be performed together because they form a logical unit of work. For example, all row-level transformations that operate on a particular dataset will be executed as a unit.
+
 ## Example
 
 Convert from this
