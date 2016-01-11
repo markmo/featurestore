@@ -89,6 +89,7 @@ object functions {
     * If response = true then response must be final column of df and
     * of String type (at this stage only implemented for classification).
     *
+    * @author Todd Niven
     * @param model GenModel
     * @param df DataFrame
     * @param responseAttached Boolean
