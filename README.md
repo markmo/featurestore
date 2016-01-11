@@ -307,6 +307,7 @@ Step 3: In Spark, load model by reflection:
 * https://github.com/mdr/ascii-graphs v0.0.3
 * Spark-CSV 1.3.0
 * https://github.com/tototoshi/scala-csv v1.2.2
+* [H2O Sparkling Water](https://github.com/h2oai/sparkling-water) v1.5.2
 * ScalaTest v2.2.4
 
 ## TODO
