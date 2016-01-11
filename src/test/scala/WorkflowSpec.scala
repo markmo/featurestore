@@ -1,4 +1,4 @@
-import java.util.{Calendar, Date}
+import java.util.Calendar
 
 import diamond.io.{CSVSink, CSVSource}
 import diamond.models.{AttributeType, Event, Feature}
@@ -28,12 +28,12 @@ class WorkflowSpec extends UnitSpec {
 
   val inputSchema = StructType(
     StructField("entityIdType", StringType) ::
-      StructField("entityId", StringType) ::
-      StructField("attribute", StringType) ::
-      StructField("ts", StringType) ::
-      StructField("value", StringType, nullable = true) ::
-      StructField("properties", StringType, nullable = true) ::
-      StructField("processTime", StringType) :: Nil
+    StructField("entityId", StringType) ::
+    StructField("attribute", StringType) ::
+    StructField("ts", StringType) ::
+    StructField("value", StringType, nullable = true) ::
+    StructField("properties", StringType, nullable = true) ::
+    StructField("processTime", StringType) :: Nil
   )
 
   val rawDF =
@@ -82,7 +82,6 @@ class WorkflowSpec extends UnitSpec {
   // define aliases
 
   val Transform = RowTransformation
-
   val AppendColumn = AppendColumnRowTransformation
 
   // import helper functions such as fieldLocator

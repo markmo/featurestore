@@ -32,6 +32,6 @@ case class Fact(entity: String,
 
   // order facts by natural key (entity, attribute, ts, version)
   def compare(that: Fact): Int =
-    -((entity, attribute, ts, version) compare (that.entity, that.attribute, that.ts, that.version))
+    -((entity, attribute, ts, version) compare((that.entity, that.attribute, that.ts, that.version)))
 
 }

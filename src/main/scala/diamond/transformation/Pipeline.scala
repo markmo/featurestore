@@ -11,6 +11,8 @@ import scala.collection.mutable
   */
 trait Pipeline {
 
+  val name: String
+
   val transformations: mutable.Set[_ <: Transformation]
 
   def apply(df: DataFrame, ctx: TransformationContext): DataFrame

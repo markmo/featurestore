@@ -280,10 +280,26 @@ The following library functions exist.
 * [formatDateTimeString](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Formats a date string of a given pattern to a conformed date and time format (yyyy-MM-dd HH:mm:ss).
 * [convertStringToTimestamp](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Converts a date string of a given pattern to epoch (unix) time, defined as the number of seconds that have elapsed since 00:00:00 Coordinated Universal Time (UTC), Thursday, 1 January 1970, not counting leap seconds.
 * [hashKey](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Hashes a string key using SHA-256. Used to hash entity keys, which may be composite.
+* [score](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Score DataFrame using POJO model from H2O.
 
 These functions may be accessed by including the following import statement.
 
     import diamond.transformation.functions._
+
+## Scoring
+
+Functions to score Spark data structures with H2O POJO models. See https://github.com/h2oai/h2o-3/blob/master/h2o-docs/src/product/howto/POJO_QuickStart.md
+
+Assume pojo model is "model.java" and model name is "model_name".
+
+Step 1: Package pojo model into jar (requires h2o-genmodel.jar): javac -cp h2o-genmodel.jar -J-Xmx2g -J-XX:MaxPermSize=256m model.java jar -cf model.jar *.class
+
+Step 2: Include model.jar in Spark instance: export SPARK_SUBMIT_OPTIONS="--driver-class-path .../sparkling-water-1.5.6/assembly/build/libs/sparkling-water-assembly-1.5.6-all.jar \ --jars .../sparkling-water-1.5.6/assembly/build/libs/sparkling-water-assembly-1.5.6-all.jar,.../model.jar
+
+Step 3: In Spark, load model by reflection:
+
+    import hex.genmodel.GenModel
+    val model = Class.forName("<model-name>").newInstance().asInstanceOf[GenModel]
 
 ## Dependencies
 
@@ -299,3 +315,5 @@ These functions may be accessed by including the following import statement.
 * Consider use of the Datasets API. A Dataset is a new experimental interface added in Spark 1.6 that tries to provide the benefits of RDDs (strong typing, ability to use powerful lambda functions) with the benefits of Spark SQL’s optimized execution engine.
 * Consider supplying an explicit schema parameter to transformation functions.
 * Consider moving library functions to package object.
+* Metrics and Restart.
+* Improve type safety in TransformationContext.

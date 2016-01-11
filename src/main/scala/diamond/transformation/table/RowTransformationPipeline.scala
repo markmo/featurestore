@@ -1,5 +1,9 @@
 package diamond.transformation.table
 
+import java.util.Calendar
+
+import diamond.models.{ErrorThresholdReachedException, TransformationError}
+import diamond.store.ErrorRepository
 import diamond.transformation.row.{AppendColumnRowTransformation, RowTransformation}
 import diamond.transformation.utilityFunctions._
 import diamond.transformation.{Pipeline, TransformationContext}
@@ -24,9 +28,28 @@ class RowTransformationPipeline(private var nm: String) extends TableTransformat
   val transformations = mutable.Set[RowTransformation]()
 
   def apply(df: DataFrame, ctx: TransformationContext): DataFrame = {
-    // loop through and execute transformations
-    val results = df.rdd.map {
-      sortedTransformations.foldLeft(_)((r, t) => t(r, ctx))
+    val errorRepository = new ErrorRepository
+    val results = try {
+      // loop through and execute transformations
+      df.rdd.map {
+        sortedTransformations.foldLeft(_)((r, t) =>
+          try {
+            t(r, ctx)
+          } catch {
+            case e: Throwable =>
+              val cal = Calendar.getInstance
+              val errors = ctx("errors").asInstanceOf[List[TransformationError]]
+              ctx("errors", errors :+ TransformationError(name, cal.getTime, e.getClass.getSimpleName, e.getMessage, r))
+              val errorThreshold = ctx("errorThreshold").asInstanceOf[Int]
+              if (errors.length + 1 > errorThreshold)
+                throw new ErrorThresholdReachedException(name, cal.getTime)
+              r
+          })
+      }
+    } finally {
+      val errors = ctx("errors").asInstanceOf[List[TransformationError]]
+      if (errors.nonEmpty)
+        errorRepository.save(errors)
     }
 
     val schema = ctx(RowTransformation.SCHEMA_KEY).asInstanceOf[StructType]

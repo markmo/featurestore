@@ -32,6 +32,6 @@ case class Event(entity: String,
 
   // order events by natural key (entity, attribute, ts, version)
   def compare(that: Event): Int =
-    -((entity, attribute, ts, version) compare(that.entity, that.attribute, that.ts, that.version))
+    -((entity, attribute, ts, version) compare((that.entity, that.attribute, that.ts, that.version)))
 
 }

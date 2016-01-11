@@ -1,5 +1,7 @@
 package diamond.transformation
 
+import diamond.models.{JobStep, TransformationError}
+
 import scala.collection.mutable
 
 /**
@@ -11,6 +13,9 @@ import scala.collection.mutable
 class TransformationContext extends Serializable {
 
   val map = mutable.Map[String, Any]()
+
+  apply("errors", List[TransformationError]())
+  apply("steps", List[JobStep]())
 
   def apply(key: String, value: Any) {
     map.put(key, value)
