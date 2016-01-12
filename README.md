@@ -6,7 +6,7 @@ This is not trying to be a "macro" workflow framework such as Oozie, Luigi or Az
 
 The granularity of Spark Apps/Jobs might be driven by source feeds or scoring of a particular analytical model. Jobs should be designed to maximise parallel execution based on dependency constraints, where possible, instead of timed. However, each job may encompass multiple transformations that must be performed together because they form a logical unit of work. For example, all row-level transformations that operate on a particular dataset will be executed as a unit.
 
-This framework provides support for organizing transformations as well as organizing features within flexible data structures that can serve a shared feature store.
+This framework provides support for organizing transformations as well as organizing features within flexible data structures that serve a shared feature store.
 
 ## Example
 
@@ -263,6 +263,7 @@ Table-level transformations:
 
 * [NamedSQLTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/NamedSQLTableTransformation.scala) - Uses Spark SQL given a named query (queryName) from a configuration file (propsPath) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
 * [SQLTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/SQLTableTransformation.scala) - Uses Spark SQL given a query string (sql) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
+* [SQLFileTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/SQLFileTableTransformation.scala) - Uses Spark SQL given a SQL statement loaded from a configuration file (filename) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
 * [TableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/TableTransformation.scala) - A general table-level transformation that takes a DataFrame and returns a new DataFrame. The new DataFrame may conform to a different schema. It may be computed with reference to the original DataFrame or to any values in the TransformationContext.
 * [RowTransformationPipeline](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/RowTransformationPipeline.scala) - A RowTransformationPipeline takes a DataFrame and applies a Pipeline of row-level transformations to return a new DataFrame. The supplied DataFrame and TransformationContext are provided as inputs to the Pipeline.
 
@@ -286,6 +287,7 @@ The following library functions exist.
 * [formatDateTimeString](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Formats a date string of a given pattern to a conformed date and time format (yyyy-MM-dd HH:mm:ss).
 * [convertStringToTimestamp](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Converts a date string of a given pattern to epoch (unix) time, defined as the number of seconds that have elapsed since 00:00:00 Coordinated Universal Time (UTC), Thursday, 1 January 1970, not counting leap seconds.
 * [hashKey](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Hashes a string key using SHA-256. Used to hash entity keys, which may be composite.
+* [template](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Using the "pimp my library" pattern to render a string template substituting variables.
 * [score](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Score DataFrame using POJO model from H2O.
 
 These functions may be accessed by including the following import statement.

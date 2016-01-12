@@ -8,6 +8,8 @@ import hex.genmodel.GenModel
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 
+import scala.annotation.tailrec
+
 /**
   * Created by markmo on 30/11/2015.
   */
@@ -82,6 +84,99 @@ object functions {
     val digest = md.digest()
     String.format("%064x", new BigInteger(1, digest))
   }
+
+  /**
+    * Using the "pimp my library" pattern.
+    *
+    * @param str String template
+    */
+  implicit class StringTemplate(val str: String) extends AnyVal {
+
+    /**
+      * Render a string template substituting variables.
+      *
+      * @param vars Map of variables to replace
+      * @return String
+      */
+    def template(vars: Map[String, String]): String = {
+      val sb = new StringBuilder
+
+      @tailrec
+      def loop(str: String): String = {
+        if (str.length == 0) {
+          sb.toString
+        } else if (str.startsWith("$$")) {
+          sb.append("$$")
+          loop(str.substring(2))
+        } else if (str.startsWith("${")) {
+          val i = str.indexOf("}")
+          if (i == -1) {
+            sb.append(str).toString
+          } else {
+            val replacement = vars.get(str.substring(2, i)).orNull
+            if (replacement == null) {
+              sb.append("${")
+              loop(str.substring(2))
+            } else {
+              sb.append(replacement)
+              loop(str.substring(i + 1))
+            }
+          }
+        } else if (str.startsWith("$")) {
+          val n = str.length
+          if (n == 1) {
+            sb.append(str).toString
+          } else {
+            val i = str.indexOf(" ")
+            val j = if (i == -1) n else i
+            val replacement = vars.get(str.substring(1, j)).orNull
+            if (replacement == null) {
+              sb.append("$")
+              loop(str.substring(1))
+            } else {
+              sb.append(replacement)
+              if (j == n) {
+                sb.toString
+              } else {
+                loop(str.substring(j + 1))
+              }
+            }
+          }
+        } else {
+          val i = str.indexOf("$")
+          if (i == -1) {
+            sb.append(str).toString
+          } else {
+            sb.append(str.substring(0, i))
+            loop(str.substring(i))
+          }
+        }
+      }
+
+      loop(str)
+    }
+
+  }
+
+  /**
+    * Alternative implementation using a Custom Interpolator.
+    *
+    * @ param sc StringContext
+    *
+  implicit class TemplateHelper(sc: StringContext) extends AnyVal {
+
+    def t(args: Any*): String = {
+      val strings = sc.parts.iterator
+      val expressions = args.iterator
+      val sb = new StringBuilder(strings.next)
+      while (strings.hasNext) {
+        sb append expressions.next
+        sb append strings.next
+      }
+      sb.toString
+    }
+
+  }*/
 
   /**
     * Score DataFrame using POJO model from H2O.

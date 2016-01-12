@@ -14,6 +14,8 @@ import org.apache.spark.sql.DataFrame
   */
 trait NamedSQLTableTransformation extends TableTransformation {
 
+  import diamond.transformation.functions._
+
   val tableName: String
 
   val propsPath: String
@@ -22,7 +24,8 @@ trait NamedSQLTableTransformation extends TableTransformation {
 
   def apply(df: DataFrame, ctx: TransformationContext): DataFrame = {
     val sqlMap = SQLLoader.load(propsPath)
-    df.sqlContext.sql(sqlMap(name))
+    val params = ctx("sqlparams").asInstanceOf[Map[String, String]]
+    df.sqlContext.sql(sqlMap(name).template(params))
   }
 
 }

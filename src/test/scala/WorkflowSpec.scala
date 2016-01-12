@@ -378,6 +378,19 @@ class WorkflowSpec extends UnitSpec {
     filtered2.collect()(0)(1) should equal ("1")
   }
 
+  "A StringTemplate" should "correctly interpolate a string" in {
+    import diamond.transformation.functions._
+
+    "Hello $w".template(Map("w" -> "World")) should equal ("Hello World")
+    "Hello ${w}".template(Map("w" -> "World")) should equal ("Hello World")
+    "Hello $$w".template(Map("w" -> "World")) should equal ("Hello $$w")
+    "Hello $${w}".template(Map("w" -> "World")) should equal ("Hello $${w}")
+    "Hello ${}".template(Map("w" -> "World")) should equal ("Hello ${}")
+    "Hello ${foo}".template(Map("w" -> "World")) should equal ("Hello ${foo}")
+    "Hello ${".template(Map("w" -> "World")) should equal ("Hello ${")
+    "Hello $".template(Map("w" -> "World")) should equal ("Hello $")
+  }
+
   /* WIP - NOT READY
   "DSL notation" should "execute a pipeline" in {
     import diamond.transformation._
