@@ -5,8 +5,10 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
 /**
   * Created by markmo on 16/12/2015.
   */
-class SQLTransformation(sql: String) extends Serializable {
+class SQLTransformation(sql: String, params: Map[String, String]) extends Serializable {
 
-  def apply(sqlContext: SQLContext): DataFrame = sqlContext.sql(sql)
+  import diamond.transformation.functions._
+
+  def apply(sqlContext: SQLContext): DataFrame = sqlContext.sql(sql.template(params))
 
 }

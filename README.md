@@ -294,6 +294,8 @@ These functions may be accessed by including the following import statement.
 
     import diamond.transformation.functions._
 
+## 
+
 ## Scoring
 
 Functions to score Spark data structures with H2O POJO models. See https://github.com/h2oai/h2o-3/blob/master/h2o-docs/src/product/howto/POJO_QuickStart.md

@@ -272,7 +272,7 @@ class WorkflowSpec extends UnitSpec {
   }
 
   "A NamedSQLTransformation" should "read and execute a SQL statement from a properties file given a symbolic name" in {
-    val transform = new NamedSQLTransformation("/sql.properties", "query1")
+    val transform = new NamedSQLTransformation("/sql.properties", "query1", Map())
 
     val results = transform(sqlContext)
 
@@ -283,7 +283,7 @@ class WorkflowSpec extends UnitSpec {
 
 
   it should "read and execute a SQL statement from an XML configuration file given a symbolic name" in {
-    val transform = new NamedSQLTransformation("/sql.xml", "query1")
+    val transform = new NamedSQLTransformation("/sql.xml", "query1", Map())
 
     val results = transform(sqlContext)
 

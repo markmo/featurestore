@@ -2,9 +2,9 @@ package diamond.io
 
 import diamond.transformation.TransformationContext
 import diamond.transformation.row.RowTransformation._
-import diamond.transformation.sql.NamedSQLTransformation
+import diamond.transformation.sql.{NamedSQLTransformation, SQLFileTransformation, SQLTransformation}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{SQLContext, DataFrame}
+import org.apache.spark.sql.{DataFrame, SQLContext}
 
 /**
   * Created by markmo on 9/01/2016.
@@ -71,18 +71,63 @@ case class ParquetSource(sqlContext: SQLContext) extends Source {
   *
   * @param sqlContext SQLContext
   */
-case class SQLSource(sqlContext: SQLContext) extends Source {
+case class NamedSQLSource(sqlContext: SQLContext) extends Source {
 
   /**
     * Source params are supplied to the context:
     * * propsPath - path to the SQL properties file
     * * name - named SQL query
+    * * sqlparams - Map of parameters
     *
     * @param ctx TransformationContext
     * @return DataFrame
     */
   def apply(ctx: TransformationContext): DataFrame = {
-    val transform = new NamedSQLTransformation(ctx("propsPath").asInstanceOf[String], ctx("name").asInstanceOf[String])
+    val transform = new NamedSQLTransformation(ctx("propsPath").asInstanceOf[String], ctx("name").asInstanceOf[String], ctx("sqlparams").asInstanceOf[Map[String, String]])
+    transform(sqlContext)
+  }
+
+}
+
+/**
+  * Loads a DataFrame using Spark SQL given a SQL statement.
+  *
+  * @param sqlContext SQLContext
+  */
+case class SQLSource(sqlContext: SQLContext) extends Source {
+
+  /**
+    * Source params are supplied to the context:
+    * * sql - SQL statement
+    * * sqlparams - Map of parameters
+    *
+    * @param ctx TransformationContext
+    * @return DataFrame
+    */
+  def apply(ctx: TransformationContext): DataFrame = {
+    val transform = new SQLTransformation(ctx("sql").asInstanceOf[String], ctx("sqlparams").asInstanceOf[Map[String, String]])
+    transform(sqlContext)
+  }
+
+}
+
+/**
+  * Loads a DataFrame using Spark SQL given a SQL statement loaded from a file.
+  *
+  * @param sqlContext SQLContext
+  */
+case class SQLFileSource(sqlContext: SQLContext) extends Source {
+
+  /**
+    * Source params are supplied to the context:
+    * * filename - containing SQL
+    * * sqlparams - Map of parameters
+    *
+    * @param ctx TransformationContext
+    * @return DataFrame
+    */
+  def apply(ctx: TransformationContext): DataFrame = {
+    val transform = new SQLFileTransformation(ctx("filename").asInstanceOf[String], ctx("sqlparams").asInstanceOf[Map[String, String]])
     transform(sqlContext)
   }
 

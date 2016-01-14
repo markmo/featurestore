@@ -13,11 +13,19 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "org.apache.spark" %% "spark-core" % "1.5.2",
-  "org.apache.spark" %% "spark-sql" % "1.5.2",
-  "com.github.mdr" %% "ascii-graphs" % "0.0.3",
-  "com.databricks" %% "spark-csv" % "1.3.0",
-  "com.github.tototoshi" %% "scala-csv" % "1.2.2",
+  "org.apache.spark" %% "spark-core" % "1.5.2" % "provided"
+    exclude("org.mortbay.jetty", "servlet-api")
+    exclude("commons-beanutils", "commons-beanutils-core")
+    exclude("commons-collections", "commons-collections")
+    exclude("commons-logging", "commons-logging")
+    exclude("com.esotericsoftware.minlog", "minlog"),
+  "org.apache.spark" %% "spark-sql" % "1.5.2" % "provided",
+  "com.github.mdr" % "ascii-graphs_2.10" % "0.0.3",
+  "com.databricks" %% "spark-csv" % "1.3.0"
+    exclude("org.apache.spark", "spark-core_2.10")
+    exclude("org.apache.spark", "spark-sql_2.10")
+  ,
+  "com.github.tototoshi" % "scala-csv_2.10" % "1.2.2",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   "ai.h2o" % "sparkling-water-core_2.10" % "1.5.2"
     exclude("org.apache.spark", "spark-core_2.10")

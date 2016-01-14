@@ -5,11 +5,13 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
 /**
   * Created by markmo on 16/12/2015.
   */
-class NamedSQLTransformation(propsPath: String, name: String) extends Serializable {
+class NamedSQLTransformation(propsPath: String, name: String, params: Map[String, String]) extends Serializable {
+
+  import diamond.transformation.functions._
 
   def apply(sqlContext: SQLContext): DataFrame = {
     val sqlMap = SQLLoader.load(propsPath)
-    sqlContext.sql(sqlMap(name))
+    sqlContext.sql(sqlMap(name).template(params))
   }
 
 }

@@ -20,6 +20,14 @@ trait Pipeline {
   def run(source: Source, sink: Sink, ctx: TransformationContext): DataFrame =
     sink(apply(source(ctx), ctx), ctx)
 
+  def run(source1: Source, source2: Source, joinKeys1: List[String], joinKeys2: List[String], sink: Sink, ctx: TransformationContext): DataFrame = {
+    val df = source1(ctx).join(source2(ctx))
+    for ((joinKey1, joinKey2) <- joinKeys1.zip(joinKeys2)) {
+      df.where(s"$joinKey1 = $joinKey2")
+    }
+    sink(apply(df, ctx), ctx)
+  }
+
   /**
     * Prints ASCII-art diagram of Directed Acyclic Graph (DAG).
     *
