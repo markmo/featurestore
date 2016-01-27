@@ -1,4 +1,4 @@
-package diamond.transformation
+package diamond.transform
 
 import scala.collection.mutable
 

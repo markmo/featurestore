@@ -21,7 +21,7 @@ class FeatureStoreRepository {
 
   def load(): FeatureStore = {
     val store = new FeatureStore
-    val in = fs.open(new Path(BASE_URI + "/" + dictFilename))
+    val in = fs.open(new Path(dictFilename))
     var reader: CSVReader = null
     try {
       reader = CSVReader.open(new InputStreamReader(in))
@@ -39,7 +39,7 @@ class FeatureStoreRepository {
   // TODO
   // add versioning
   def save(store: FeatureStore) = {
-    val out = fs.create(new Path(BASE_URI + "/" + dictFilename), true)
+    val out = fs.create(new Path(dictFilename), true)
     var writer: CSVWriter = null
     try {
       writer = CSVWriter.open(new OutputStreamWriter(out))

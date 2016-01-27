@@ -20,7 +20,7 @@ class ErrorRepository {
   val filename = "errors.csv"
 
   def save(errors: List[TransformationError]) = {
-    val out = fs.create(new Path(BASE_URI + "/" + filename), true)
+    val out = fs.create(new Path(filename), true)
     var writer: CSVWriter = null
     try {
       writer = CSVWriter.open(new OutputStreamWriter(out))

@@ -1,4 +1,4 @@
-package diamond.transformation
+package diamond.transform
 
 import com.github.mdr.ascii.layout.{Graph, Layouter}
 import diamond.io.{Sink, Source}

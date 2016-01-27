@@ -1,4 +1,4 @@
-package diamond.transformation
+package diamond.transform
 
 import java.util.Date
 

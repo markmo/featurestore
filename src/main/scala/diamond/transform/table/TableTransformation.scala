@@ -1,6 +1,6 @@
-package diamond.transformation.table
+package diamond.transform.table
 
-import diamond.transformation.{Transformation, TransformationContext}
+import diamond.transform.{Transformation, TransformationContext}
 import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable

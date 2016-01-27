@@ -127,7 +127,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+libX/
 lib64/
 parts/
 sdist/
@@ -192,3 +192,5 @@ RUNNING_PID
 *.rpm
 id_rsa
 id_rsa.*
+
+libX

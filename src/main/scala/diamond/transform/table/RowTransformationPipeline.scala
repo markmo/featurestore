@@ -1,12 +1,13 @@
-package diamond.transformation.table
+package diamond.transform.table
 
 import java.util.Calendar
 
 import diamond.models.{ErrorThresholdReachedException, TransformationError}
 import diamond.store.ErrorRepository
-import diamond.transformation.row.{AppendColumnRowTransformation, RowTransformation}
-import diamond.transformation.utilityFunctions._
-import diamond.transformation.{Pipeline, TransformationContext}
+import diamond.transform.row.{AppendColumnRowTransformation, RowTransformation}
+import diamond.utility.utilityFunctions
+import utilityFunctions._
+import diamond.transform.{Pipeline, TransformationContext}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 

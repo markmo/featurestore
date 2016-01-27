@@ -1,4 +1,4 @@
-package diamond.transformation
+package diamond.utility
 
 import scala.annotation.tailrec
 

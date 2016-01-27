@@ -1,4 +1,4 @@
-package diamond.transformation
+package diamond.transform
 
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType, TimestampType}
 

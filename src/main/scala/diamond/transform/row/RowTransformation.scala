@@ -1,6 +1,6 @@
-package diamond.transformation.row
+package diamond.transform.row
 
-import diamond.transformation.{Transformation, TransformationContext}
+import diamond.transform.{Transformation, TransformationContext}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 

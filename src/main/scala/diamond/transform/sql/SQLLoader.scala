@@ -1,4 +1,4 @@
-package diamond.transformation.sql
+package diamond.transform.sql
 
 import java.util.Properties
 

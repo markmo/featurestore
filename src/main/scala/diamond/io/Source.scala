@@ -1,8 +1,8 @@
 package diamond.io
 
-import diamond.transformation.TransformationContext
-import diamond.transformation.row.RowTransformation._
-import diamond.transformation.sql.{NamedSQLTransformation, SQLFileTransformation, SQLTransformation}
+import diamond.transform.TransformationContext
+import diamond.transform.row.RowTransformation._
+import diamond.transform.sql.{NamedSQLTransformation, SQLFileTransformation, SQLTransformation}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SQLContext}
 

@@ -1,4 +1,4 @@
-package diamond.transformation.sql
+package diamond.transform.sql
 
 import org.apache.spark.sql.{DataFrame, SQLContext}
 

@@ -3,14 +3,14 @@ import java.util.Calendar
 import diamond.io.{CSVSink, CSVSource}
 import diamond.models.{AttributeType, Event, Feature}
 import diamond.store.{FeatureStore, FeatureStoreRepository}
-import diamond.transformation.TransformationContext
-import diamond.transformation.row.{AppendColumnRowTransformation, RowTransformation}
-import diamond.transformation.sql.NamedSQLTransformation
-import diamond.transformation.table.RowTransformationPipeline
+import diamond.transform.TransformationContext
+import diamond.transform.row.{AppendColumnRowTransformation, RowTransformation}
+import diamond.transform.sql.NamedSQLTransformation
+import diamond.transform.table.RowTransformationPipeline
+import diamond.utility.functions
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
-import org.apache.spark.sql.{Row, SQLContext}
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.reflect.io.Path
 import scala.util.Try
@@ -20,9 +20,7 @@ import scala.util.Try
   */
 class WorkflowSpec extends UnitSpec {
 
-  val conf = new SparkConf().setAppName("Test").setMaster("local[4]")
-  val sc = new SparkContext(conf)
-  val sqlContext = new SQLContext(sc)
+  @transient var rawDF: DataFrame = _
 
   val path = getClass.getResource("events_sample.csv").getPath
 
@@ -36,19 +34,22 @@ class WorkflowSpec extends UnitSpec {
     StructField("processTime", StringType) :: Nil
   )
 
-  val rawDF =
-    sqlContext.read
-      .format("com.databricks.spark.csv")
-      .option("header", "false")
-      .schema(inputSchema)
-      .load(path)
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    rawDF =
+      sqlContext.read
+        .format("com.databricks.spark.csv")
+        .option("header", "false")
+        .schema(inputSchema)
+        .load(path)
 
-  rawDF.registerTempTable("events")
+    rawDF.registerTempTable("events")
+  }
 
   /*
-    * Need to be careful with these transforms as they can drop columns
-    * appended by AppendColumnTransformations if done out of sequence.
-    *
+   * Need to be careful with these transforms as they can drop columns
+   * appended by AppendColumnTransformations if done out of sequence.
+   *
   object HelloTransform extends RowTransformation {
 
     // A name is required for reporting and debugging purposes
@@ -100,7 +101,8 @@ class WorkflowSpec extends UnitSpec {
       f("properties"),
       f("processTime")
     )
-  }}
+  }
+  }
 
   /*
   object WorldTransform extends RowTransformation {
@@ -136,11 +138,11 @@ class WorkflowSpec extends UnitSpec {
   }
 
   /*
-    * This type of transform appends a new column to the end
-    * so the developer doesn't need to construct a full Row.
-    *
-    * Implement "append" instead of "apply".
-    *
+   * This type of transform appends a new column to the end
+   * so the developer doesn't need to construct a full Row.
+   *
+   * Implement "append" instead of "apply".
+   *
   object FiftyTransform extends AppendColumnRowTransformation {
 
     val name = "Fifty"
@@ -223,17 +225,17 @@ class WorkflowSpec extends UnitSpec {
 
     // print some results
 
-//    rawDF.take(3).foreach(println)
+    //    rawDF.take(3).foreach(println)
 
-//    println {
-//      rawDF.printSchema()
-//    }
+    //    println {
+    //      rawDF.printSchema()
+    //    }
 
-//    println {
-//      results.printSchema()
-//    }
+    //    println {
+    //      results.printSchema()
+    //    }
 
-//    results.take(3).foreach(println)
+    //    results.take(3).foreach(println)
 
     println {
       pipeline.printDAG()
@@ -276,7 +278,7 @@ class WorkflowSpec extends UnitSpec {
 
     val results = transform(sqlContext)
 
-//    results.take(1).foreach(println)
+    //    results.take(1).foreach(println)
 
     results.collect().length should be > 10
   }
@@ -287,7 +289,7 @@ class WorkflowSpec extends UnitSpec {
 
     val results = transform(sqlContext)
 
-//    results.take(1).foreach(println)
+    //    results.take(1).foreach(println)
 
     results.collect().length should be > 10
   }
@@ -308,13 +310,13 @@ class WorkflowSpec extends UnitSpec {
     val loadedStore = repo.load()
     val features = loadedStore.registeredFeatures
 
-    features.length should be (2)
+    features.length should be(2)
     features(0).attribute should equal("feature1")
   }
 
   "A Snapshot" should "return a snapshot view of features" in {
-    import diamond.transformation.PivotFunctions._
-    import diamond.transformation.functions._
+    import diamond.transform.PivotFunctions._
+    import functions._
 
     val cal = Calendar.getInstance()
 
@@ -333,9 +335,9 @@ class WorkflowSpec extends UnitSpec {
       )
     }
 
-//    events.foreach(println)
+    //    events.foreach(println)
 
-//    println("Events Count:" + events.count())
+    //    println("Events Count:" + events.count())
 
     val store = new FeatureStore
 
@@ -343,52 +345,52 @@ class WorkflowSpec extends UnitSpec {
 
     val snap = snapshot(events, cal.getTime, store)
 
-//    snap.take(5).foreach(println)
+    //    snap.take(5).foreach(println)
 
-//    println("Snapshot Count:" + snap.count())
+    //    println("Snapshot Count:" + snap.count())
 
-    snap.count() should be (48)
+    snap.count() should be(48)
 
     cal.set(2013, 2, 31)
 
-//    val dt = cal.getTime
-//    val dateFiltered = events.filter(ev => {
-//      println(s"${ev.ts} ~ $dt")
-//      ev.ts.before(dt) || ev.ts.equals(dt)
-//    })
-//    dateFiltered.foreach(println)
+    //    val dt = cal.getTime
+    //    val dateFiltered = events.filter(ev => {
+    //      println(s"${ev.ts} ~ $dt")
+    //      ev.ts.before(dt) || ev.ts.equals(dt)
+    //    })
+    //    dateFiltered.foreach(println)
 
     val filtered = snap.filter { r =>
       r.head == hashKey("607" + "2016565915")
     }
-//    filtered.foreach(println)
-    filtered.collect()(0)(1) should equal ("2")
+    //    filtered.foreach(println)
+    filtered.collect()(0)(1) should equal("2")
 
     val snap2 = snapshot(events, cal.getTime, store)
 
-//    snap2.foreach(println)
-//    println("Snapshot Count:" + snap2.count())
+    //    snap2.foreach(println)
+    //    println("Snapshot Count:" + snap2.count())
 
-    snap2.count() should be (6)
+    snap2.count() should be(6)
 
     val filtered2 = snap2.filter { r =>
       r.head == hashKey("607" + "2016565915")
     }
-//    filtered2.foreach(println)
-    filtered2.collect()(0)(1) should equal ("1")
+    //    filtered2.foreach(println)
+    filtered2.collect()(0)(1) should equal("1")
   }
 
   "A StringTemplate" should "correctly interpolate a string" in {
-    import diamond.transformation.functions._
+    import functions._
 
-    "Hello $w".template(Map("w" -> "World")) should equal ("Hello World")
-    "Hello ${w}".template(Map("w" -> "World")) should equal ("Hello World")
-    "Hello $$w".template(Map("w" -> "World")) should equal ("Hello $$w")
-    "Hello $${w}".template(Map("w" -> "World")) should equal ("Hello $${w}")
-    "Hello ${}".template(Map("w" -> "World")) should equal ("Hello ${}")
-    "Hello ${foo}".template(Map("w" -> "World")) should equal ("Hello ${foo}")
-    "Hello ${".template(Map("w" -> "World")) should equal ("Hello ${")
-    "Hello $".template(Map("w" -> "World")) should equal ("Hello $")
+    "Hello $w".template(Map("w" -> "World")) should equal("Hello World")
+    "Hello ${w}".template(Map("w" -> "World")) should equal("Hello World")
+    "Hello $$w".template(Map("w" -> "World")) should equal("Hello $$w")
+    "Hello $${w}".template(Map("w" -> "World")) should equal("Hello $${w}")
+    "Hello ${}".template(Map("w" -> "World")) should equal("Hello ${}")
+    "Hello ${foo}".template(Map("w" -> "World")) should equal("Hello ${foo}")
+    "Hello ${".template(Map("w" -> "World")) should equal("Hello ${")
+    "Hello $".template(Map("w" -> "World")) should equal("Hello $")
   }
 
   /* WIP - NOT READY

@@ -1,4 +1,4 @@
-package diamond.transformation
+package diamond.transform
 
 import org.apache.spark.sql.{Row, DataFrame}
 import org.apache.spark.sql.types.DataType

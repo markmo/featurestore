@@ -1,5 +1,6 @@
-package diamond.transformation.sql
+package diamond.transform.sql
 
+import diamond.utility.functions
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
 import scala.io.Source
@@ -11,7 +12,7 @@ import scala.io.Source
   */
 class SQLFileTransformation(filename: String, params: Map[String, String]) extends Serializable {
 
-  import diamond.transformation.functions._
+  import functions._
 
   def apply(sqlContext: SQLContext): DataFrame = {
     val source = Source.fromFile(filename)

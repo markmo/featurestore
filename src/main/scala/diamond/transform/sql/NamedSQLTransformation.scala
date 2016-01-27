@@ -1,5 +1,6 @@
-package diamond.transformation.sql
+package diamond.transform.sql
 
+import diamond.utility.functions
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
 /**
@@ -7,7 +8,7 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
   */
 class NamedSQLTransformation(propsPath: String, name: String, params: Map[String, String]) extends Serializable {
 
-  import diamond.transformation.functions._
+  import functions._
 
   def apply(sqlContext: SQLContext): DataFrame = {
     val sqlMap = SQLLoader.load(propsPath)

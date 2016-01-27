@@ -1,10 +1,11 @@
-package diamond.transformation
+package diamond.utility
 
 import java.math.BigInteger
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 
 import hex.genmodel.GenModel
+import net.openhft.hashing.LongHashFunction
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 
@@ -86,6 +87,17 @@ object functions {
   }
 
   /**
+    * Fast hashing for change data capture.
+    * Uses the xxHash algorithm.
+    *
+    * @see https://github.com/OpenHFT/Zero-Allocation-Hashing
+    * @param str String
+    * @return String hashed
+    */
+  def fastHash(str: String) =
+    LongHashFunction.xx_r39().hashChars(str).toString
+
+  /**
     * Using the "pimp my library" pattern.
     *
     * @param str String template
@@ -163,20 +175,20 @@ object functions {
     *
     * @ param sc StringContext
     *
-  implicit class TemplateHelper(sc: StringContext) extends AnyVal {
+  *implicit class TemplateHelper(sc: StringContext) extends AnyVal {
 
-    def t(args: Any*): String = {
-      val strings = sc.parts.iterator
-      val expressions = args.iterator
-      val sb = new StringBuilder(strings.next)
-      while (strings.hasNext) {
-        sb append expressions.next
-        sb append strings.next
-      }
-      sb.toString
-    }
+    *def t(args: Any*): String = {
+      *val strings = sc.parts.iterator
+      *val expressions = args.iterator
+      *val sb = new StringBuilder(strings.next)
+      *while (strings.hasNext) {
+        *sb append expressions.next
+        *sb append strings.next
+      *}
+      *sb.toString
+    *}
 
-  }*/
+  *}*/
 
   /**
     * Score DataFrame using POJO model from H2O.

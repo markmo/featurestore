@@ -1,6 +1,6 @@
 package diamond.io
 
-import diamond.transformation.TransformationContext
+import diamond.transform.TransformationContext
 import org.apache.spark.sql.{SQLContext, DataFrame}
 
 /**
