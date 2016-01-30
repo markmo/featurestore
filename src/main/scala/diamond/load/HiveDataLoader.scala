@@ -7,6 +7,9 @@ import org.apache.spark.sql.types.TimestampType
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
 /**
+  * Depends on Hive Update: Hive version 0.14+
+  * and transaction support configured on server.
+  *
   * Created by markmo on 23/01/2016.
   */
 class HiveDataLoader extends DataLoader {
@@ -113,6 +116,7 @@ class HiveDataLoader extends DataLoader {
            |,$META_RECTYPE = '$RECTYPE_UPDATE'
            |from $tableName e
            |inner join updated u on u.$META_ENTITY_ID = e.$META_ENTITY_ID
+           |where e.$META_END_TIME = '$META_OPEN_END_DATE_VALUE'
         """.stripMargin)
 
       if (deletes.isDefined) {
@@ -125,6 +129,7 @@ class HiveDataLoader extends DataLoader {
              |,$META_RECTYPE = '$RECTYPE_DELETE'
              |from $tableName e
              |inner join deleted u on u.$META_ENTITY_ID = e.$META_ENTITY_ID
+             |where e.$META_END_TIME = '$META_OPEN_END_DATE_VALUE'
         """.stripMargin)
       }
 
