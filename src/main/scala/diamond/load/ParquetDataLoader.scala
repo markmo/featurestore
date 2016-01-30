@@ -13,6 +13,10 @@ import org.apache.spark.sql.types.TimestampType
 import org.apache.spark.sql.{DataFrame, Row, SaveMode}
 
 /**
+  * Parquet writes columns out of order (compared to the schema)
+  * https://issues.apache.org/jira/browse/PARQUET-188
+  * Fixed in 1.6.0
+  *
   * Created by markmo on 23/01/2016.
   */
 class ParquetDataLoader extends DataLoader {
@@ -21,7 +25,6 @@ class ParquetDataLoader extends DataLoader {
   val FILE_NEW = s"new$FILE_EXT"
   val FILE_CHANGED = s"changed$FILE_EXT"
   val FILE_REMOVED = s"removed$FILE_EXT"
-  val FILE_META = s"meta$FILE_EXT"
   val FILE_CURRENT = s"current$FILE_EXT"
 
   val LAYER_IL = "il"
@@ -30,183 +33,200 @@ class ParquetDataLoader extends DataLoader {
 
   // TODO
   // Cover each scenario:
-  // * Delta - no effective dates
-  // * Full - no effective dates
-  // * Delta - with effective dates
-  // * Full - with effective dates
+  // * Delta
+  // * Full
+  // * With effective dates
+  // * Without
+  // * With delete indicator
+  // * Without
+  // * Overwrite
+  // * Append-only
 
   def loadSatellite(df: DataFrame,
                     isDelta: Boolean,
                     tableName: String,
                     idField: String,
                     idType: String,
+                    deleteIndicatorField: Option[(String, Any)] = None,
                     partitionKeys: Option[List[String]] = None,
-                    newNames: Map[String, String] = Map()) {
-    val names = df.schema.fieldNames.toList
-    val hashed = df
+                    newNames: Map[String, String] = Map(),
+                    overwrite: Boolean = false,
+                    writeChangeTables: Boolean = false) {
+
+    val renamed = newNames.foldLeft(df)({
+      case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
+    })
+    val baseNames = df.schema.fieldNames.toList diff List(idField)
+    val in = renamed
       .withColumn(META_ENTITY_ID, hashKeyUDF(concat(lit(idType), col(idField))))
       .withColumn(META_START_TIME, current_timestamp().cast(TimestampType))
       .withColumn(META_END_TIME, lit(META_OPEN_END_DATE_VALUE).cast(TimestampType))
       .withColumn(META_PROCESS_DATE, current_date())
-    val renamed = newNames.foldLeft(hashed)({
-      case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
-    })
-    val updatedNames = newNames.foldLeft(names)({
-      case (l: List[String], (oldName: String, newName: String)) => l.updated(l.indexOf(oldName), newName)
-    }) diff List(idField)
+      .withColumn(META_HASHED_VALUE, fastHashUDF(concat(baseNames.map(col): _*)))
 
     // add column headers for process metadata
-    val satNames: List[String] = updatedNames ++ List(META_START_TIME, META_END_TIME, META_PROCESS_DATE)
-    val sat = renamed.select(META_ENTITY_ID, satNames: _*)
+    val names = META_ENTITY_ID :: baseNames ++ List(META_START_TIME, META_END_TIME, META_PROCESS_DATE, META_HASHED_VALUE)
+    val header = names ++ List(META_RECTYPE, META_VERSION)
 
-    val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
     val tablePath = s"/$LAYER_IL/$tableName/$tableName$FILE_EXT"
-    val path = new Path(tablePath)
     val sqlContext = df.sqlContext
-    val headers: List[String] = META_ENTITY_ID :: satNames ++ List(META_OP, META_VERSION, META_HASHED_VALUE)
+    val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
+    val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
 
-    val hi = hashRows(sat, updatedNames)
-
-    if (fs.exists(path)) {
-
-      //val existing = sqlContext.read.load(s"$BASE_URI$tablePath").cache()
+    if (fs.exists(new Path(tablePath))) {
+      val currentPath = s"$BASE_URI/$LAYER_IL/$tableName/$FILE_CURRENT"
 
       // need to use the __current__ set or join below will match multiple rows
-      // TODO
-      // if current doesn't exist, create empty DataFrame
-      val existing = sqlContext.read.load(s"$BASE_URI/$LAYER_IL/$tableName/$FILE_CURRENT").cache()
-
-      //val he = hashRows(existing, updatedNames)
-
-      // alternative: use pre-hashed values from meta table
-      //val he = sqlContext.read.load(s"$BASE_URI/il/$tableName/$FILE_META")
-
-      // or the current table
-      val existingHashedValueKey = "existing_hashed_value"
-      val he = existing.withColumnRenamed(META_HASHED_VALUE, existingHashedValueKey)
+      val ex = sqlContext.read.load(currentPath).cache()
 
       // with update capability, read would filter on `end_time = '9999-12-31'`
       // to select current records, but end_time is not being updated on old records
 
       // records in the new set that aren't in the existing set
-      val added = hi
-        .join(existing, sat(META_ENTITY_ID) === existing(META_ENTITY_ID), "left")
-        .where(existing(META_ENTITY_ID).isNull)
-        .withColumn(META_OP, lit("I"))
+      val newRecords = in
+        .join(ex, in(META_ENTITY_ID) === ex(META_ENTITY_ID), "left")
+        .where(ex(META_ENTITY_ID).isNull)
+        .select(names.map(in(_)): _*)
+        .withColumn(META_RECTYPE, lit(RECTYPE_INSERT))
         .withColumn(META_VERSION, lit(1))
 
       // records in the new set that are also in the existing set
-      val updated = hi
-        .join(he, META_ENTITY_ID)
-        .where(hi(META_HASHED_VALUE) !== he(existingHashedValueKey))
-        .withColumn(META_OP, lit("U"))
-        .withColumn(META_VERSION, lit(he(META_VERSION) + 1))
+      val matchedRecords = in
+        .join(ex, META_ENTITY_ID)
+        .where(in(META_HASHED_VALUE) !== ex(META_HASHED_VALUE))
+        .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
 
-      // remove partitions > 3 days old
-      val daysAgo = 3
+      val (inserts, changes, deletes) =
+        if (deleteIndicatorField.isDefined) {
+          val deletesNew = newRecords
+            .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
+            .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
 
-      // adds
-      removeParts(fs, s"$BASE_URI/$LAYER_IL/$tableName/$FILE_NEW", daysAgo)
+          (
+            // inserts
+            newRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+            // changes
+            matchedRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+            // deletes
+            if (overwrite) {
+              val deletesExisting = matchedRecords
+                .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
+                .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
+                .drop(in(META_END_TIME))
+                .withColumn(META_END_TIME, lit(in(META_START_TIME)))
+                .select(header.map(ex(_)): _*)
 
-      added
-        .select(headers.map(col): _*)
-        .write
-        .partitionBy(META_PROCESS_DATE)
-        .parquet(s"$BASE_URI/$LAYER_IL/$tableName/$FILE_NEW")
+              Some(deletesNew.unionAll(deletesExisting))
+            } else {
+              Some(deletesNew)
+            }
+            )
+        } else if (!isDelta) {
+          (
+            // inserts
+            newRecords,
+            // changes
+            matchedRecords,
+            // deletes
+            Some(ex
+              .join(in, ex(META_ENTITY_ID) === in(META_ENTITY_ID), "left")
+              .where(in(META_ENTITY_ID).isNull)
+              .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
+              .withColumn(META_VERSION, lit(ex(META_VERSION) + 1))
+              .select(header.map(ex(_)): _*)
+            )
+            )
+        } else {
+          (newRecords, matchedRecords, None)
+        }
 
-      // updates
-      removeParts(fs, s"$BASE_URI/$LAYER_IL/$tableName/$FILE_CHANGED", daysAgo)
+      val updatesNew = changes
+        .withColumn(META_VERSION, lit(ex(META_VERSION) + 1))
+        .select(names.map(in(_)) ++ List(col(META_RECTYPE), col(META_VERSION)): _*)
 
-      updated
-        .select(headers.map(col): _*)
-        .write
-        .partitionBy(META_PROCESS_DATE)
-        .parquet(s"$BASE_URI/$LAYER_IL/$tableName/$FILE_CHANGED")
-
-      //val changed = updated.unionAll(added).cache()
-      // added + updated = total new ??
-      //val changed = sat
-      val changed = hi
-
-      var deleted: DataFrame = null
-
-      // if receiving full set
-      if (!isDelta) {
-        deleted = existing
-          .join(changed, existing(META_ENTITY_ID) === changed(META_ENTITY_ID), "left")
-          .where(changed(META_ENTITY_ID).isNull)
-          .withColumn(META_OP, lit("D"))
-          .withColumn(META_VERSION, lit(existing(META_VERSION) + 1))
-          .cache()
-
-        // deletes
-        removeParts(fs, s"$BASE_URI/$LAYER_IL/$tableName/$FILE_REMOVED", daysAgo)
-
-        deleted
-          .select(headers.map(col): _*)
-          .write
-          .partitionBy(META_PROCESS_DATE)
-          .parquet(s"$BASE_URI/$LAYER_IL/$tableName/$FILE_REMOVED")
+      if (writeChangeTables) {
+        inserts.cache()
+        updatesNew.cache()
+        if (deletes.isDefined) deletes.get.cache()
       }
 
-      val allChanges = if (isDelta) changed else changed.unionAll(deleted)
-      allChanges.cache()
+      val updates =
+        if (overwrite) {
+          val updatesExisting = changes
+            .drop(in(META_END_TIME))
+            .withColumn(META_END_TIME, lit(in(META_START_TIME)))
+            .select(header.map(ex(_)): _*)
 
-      // meta
-      allChanges
-        .select(META_ENTITY_ID, META_START_TIME, META_END_TIME, META_OP, META_VERSION, META_HASHED_VALUE)
-        .write
-        .mode(SaveMode.Overwrite)
-        .parquet(s"$BASE_URI/$LAYER_IL/$tableName/$FILE_META")
+          updatesNew.unionAll(updatesExisting)
+        } else {
+          updatesNew
+        }
 
-      // all
-      val writer = allChanges
-        .select(headers.map(col): _*)
-        .write
-        .mode(SaveMode.Append)
-
-      if (partitionKeys.isDefined) {
-        writer
-          .partitionBy(partitionKeys.get :_*)
-          .parquet(s"$BASE_URI$tablePath")
-      } else {
-        writer
-          .parquet(s"$BASE_URI$tablePath")
+      val all = deletes match {
+        case Some(d) => inserts.unionAll(updates).unionAll(d)
+        case None => inserts.unionAll(updates)
       }
+      all.cache()
 
-      // snapshot
-      val latest: RDD[Row] = existing.unionAll(allChanges)
+      val writer =
+        if (partitionKeys.isDefined) {
+          all.write.mode(saveMode).partitionBy(partitionKeys.get: _*)
+        } else {
+          all.write.mode(saveMode)
+        }
+
+      writer.parquet(s"$BASE_URI$tablePath")
+
+      // write snapshot
+      val latest: RDD[Row] = ex.unionAll(all)
         .map(row => (row.getAs[String](META_ENTITY_ID), row))
         .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
         .map(_._2)
 
-      val latestDF = sqlContext.createDataFrame(latest, existing.schema)
-
-      latestDF
+      sqlContext.createDataFrame(latest, ex.schema)
         .write
         .mode(SaveMode.Overwrite)
-        .parquet(s"$BASE_URI/$LAYER_IL/$tableName/$FILE_CURRENT")
+        .parquet(currentPath)
 
-      allChanges.unpersist()
-      deleted.unpersist()
+      if (writeChangeTables) {
+        val daysAgo = 3
+        writeChangeTable(fs, inserts, header, s"$BASE_URI/$LAYER_IL/$tableName/$FILE_NEW", daysAgo)
+        writeChangeTable(fs, updatesNew, header, s"$BASE_URI/$LAYER_IL/$tableName/$FILE_CHANGED", daysAgo)
+
+        updatesNew.unpersist()
+        inserts.unpersist()
+
+        if (deletes.isDefined) {
+          writeChangeTable(fs, deletes.get, header, s"$BASE_URI/$LAYER_IL/$tableName/$FILE_REMOVED", daysAgo)
+          deletes.get.unpersist()
+        }
+      }
+
+      all.unpersist()
+      ex.unpersist()
 
     } else {
-      val writer = hi
-        .withColumn(META_OP, lit("I"))
+      val w = in
+        .drop(idField)
+        .withColumn(META_RECTYPE, lit(RECTYPE_INSERT))
         .withColumn(META_VERSION, lit(1))
-        .select(headers.map(col): _*)
         .write
-        .mode(SaveMode.Append)
+        .mode(saveMode)
 
-      if (partitionKeys.isDefined) {
-        writer
-          .partitionBy(partitionKeys.get: _*)
-          .parquet(s"$BASE_URI$tablePath")
-      } else {
-        writer
-          .parquet(s"$BASE_URI$tablePath")
-      }
+      val writer = if (partitionKeys.isDefined) w.partitionBy(partitionKeys.get: _*) else w
+
+      writer.parquet(s"$BASE_URI$tablePath")
     }
+  }
+
+  def writeChangeTable(fs: FileSystem, df: DataFrame, header: List[String], fileName: String, daysAgo: Int) {
+    // remove partitions > daysAgo old
+    removeParts(fs, fileName, daysAgo)
+    df
+      .select(header.map(col): _*)
+      .write
+      .partitionBy(META_PROCESS_DATE)
+      .parquet(fileName)
   }
 
   /**

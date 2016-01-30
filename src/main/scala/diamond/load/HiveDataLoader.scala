@@ -16,25 +16,28 @@ class HiveDataLoader extends DataLoader {
                     tableName: String,
                     idField: String,
                     idType: String,
+                    deleteIndicatorField: Option[(String, Any)] = None,
                     partitionKeys: Option[List[String]] = None,
-                    newNames: Map[String, String] = Map()) {
-    val names = df.schema.fieldNames.toList
-    val hashed = df
+                    newNames: Map[String, String] = Map(),
+                    overwrite: Boolean = true, // irrelevant
+                    writeChangeTables: Boolean = false // irrelevant
+                   ) {
+    val renamed = newNames.foldLeft(df)({
+      case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
+    })
+    val baseNames = df.schema.fieldNames.toList diff List(idField)
+    val in = renamed
       .withColumn(META_ENTITY_ID, hashKeyUDF(concat(lit(idType), col(idField))))
       .withColumn(META_START_TIME, current_timestamp().cast(TimestampType))
       .withColumn(META_END_TIME, lit(META_OPEN_END_DATE_VALUE).cast(TimestampType))
       .withColumn(META_PROCESS_DATE, current_date())
-    val renamed = newNames.foldLeft(hashed)({
-      case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
-    })
-    val updatedNames = newNames.foldLeft(names)({
-      case (l: List[String], (oldName: String, newName: String)) => l.updated(l.indexOf(oldName), newName)
-    }) diff List(idField)
+      .withColumn(META_HASHED_VALUE, fastHashUDF(concat(baseNames.map(col): _*)))
 
     // add column headers for process metadata
-    val satNames: List[String] = updatedNames ++ List(META_START_TIME, META_END_TIME, META_PROCESS_DATE)
-    val sat = renamed.select(META_ENTITY_ID, satNames: _*)
+    val names = META_ENTITY_ID :: baseNames ++ List(META_START_TIME, META_END_TIME, META_PROCESS_DATE, META_HASHED_VALUE)
+    val header = names ++ List(META_RECTYPE, META_VERSION)
 
+    val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
     val sqlContext = df.sqlContext
     val tableExist = try {
       sqlContext.sql(s"select count(*) from $tableName").head().getInt(0) > 0
@@ -42,39 +45,117 @@ class HiveDataLoader extends DataLoader {
       case _: Throwable => false
     }
     if (tableExist) {
-      val existing = sqlContext.sql(s"from $tableName select *")
+      // current records are where `end_time = '9999-12-31'`
+      val ex = sqlContext.sql(s"select * from $tableName where $META_END_TIME = '$META_OPEN_END_DATE_VALUE'")
 
-      val headers: List[String] = META_ENTITY_ID :: satNames
-      val added = sat
-        .join(existing, sat(META_ENTITY_ID) === existing(META_ENTITY_ID), "left")
-        .where(existing(META_ENTITY_ID).isNull)
-        .select(headers.map(sat(_)): _*)
+      // records in the new set that aren't in the existing set
+      val newRecords = in
+        .join(ex, in(META_ENTITY_ID) === ex(META_ENTITY_ID), "left")
+        .where(ex(META_ENTITY_ID).isNull)
+        .select(names.map(in(_)): _*)
+        .withColumn(META_RECTYPE, lit(RECTYPE_INSERT))
+        .withColumn(META_VERSION, lit(1))
 
-      val he = hashRows(existing, updatedNames)
-      val hi = hashRows(sat, updatedNames)
-      val updated = hi
-        .join(he, META_ENTITY_ID)
-        .where(hi(META_HASHED_VALUE) !== he(META_HASHED_VALUE))
-        .select(headers.map(sat(_)): _*)
-      updated.registerTempTable("updated")
+      // records in the new set that are also in the existing set
+      val matchedRecords = in
+        .join(ex, META_ENTITY_ID)
+        .where(in(META_HASHED_VALUE) !== ex(META_HASHED_VALUE))
+        .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
+        .withColumn(META_VERSION, lit(ex(META_VERSION) + 1))
+        .select(names.map(in(_)) ++ List(col(META_RECTYPE), col(META_VERSION)): _*)
+
+      val (inserts, updates, deletes) =
+        if (deleteIndicatorField.isDefined) {
+          val deletesNew = newRecords
+            .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
+            .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
+
+          val deletesExisting = matchedRecords
+            .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
+            .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
+            .drop(in(META_END_TIME))
+            .withColumn(META_END_TIME, lit(in(META_START_TIME)))
+            .select(header.map(ex(_)): _*)
+
+          (
+            // inserts
+            newRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+            // changes
+            matchedRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+            // deletes
+            Some(deletesNew.unionAll(deletesExisting))
+            )
+        } else if (!isDelta) {
+          (
+            // inserts
+            newRecords,
+            // changes
+            matchedRecords,
+            // deletes
+            Some(ex
+              .join(in, ex(META_ENTITY_ID) === in(META_ENTITY_ID), "left")
+              .where(in(META_ENTITY_ID).isNull)
+              .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
+              .withColumn(META_VERSION, lit(ex(META_VERSION) + 1))
+              .select(header.map(ex(_)): _*)
+            )
+            )
+        } else {
+          (newRecords, matchedRecords, None)
+        }
+
+      updates.cache().registerTempTable("updated")
 
       sqlContext.sql(
         s"""
            |update $tableName
            |set $META_END_TIME = u.$META_START_TIME
+           |,$META_RECTYPE = '$RECTYPE_UPDATE'
            |from $tableName e
            |inner join updated u on u.$META_ENTITY_ID = e.$META_ENTITY_ID
         """.stripMargin)
 
-      updated.unionAll(added).write
-        .partitionBy("process_date")
-        .mode(SaveMode.Append)
-        .saveAsTable(tableName)
+      if (deletes.isDefined) {
+        deletes.get.cache().registerTempTable("deleted")
+
+        sqlContext.sql(
+          s"""
+             |update $tableName
+             |set $META_END_TIME = u.$META_START_TIME
+             |,$META_RECTYPE = '$RECTYPE_DELETE'
+             |from $tableName e
+             |inner join deleted u on u.$META_ENTITY_ID = e.$META_ENTITY_ID
+        """.stripMargin)
+      }
+
+      val all = deletes match {
+        case Some(d) => inserts.unionAll(updates).unionAll(d)
+        case None => inserts.unionAll(updates)
+      }
+
+      val writer =
+        if (partitionKeys.isDefined) {
+          all.write.mode(saveMode).partitionBy(partitionKeys.get: _*)
+        } else {
+          all.write.mode(saveMode)
+        }
+
+      writer.saveAsTable(tableName)
+
+      if (deletes.isDefined) deletes.get.unpersist()
+      updates.unpersist()
+
     } else {
-      sat.write
-        .partitionBy("process_date")
+      val w = in
+        .drop(idField)
+        .withColumn(META_RECTYPE, lit(RECTYPE_INSERT))
+        .withColumn(META_VERSION, lit(1))
+        .write
         .mode(SaveMode.Append)
-        .saveAsTable(tableName)
+
+      val writer = if (partitionKeys.isDefined) w.partitionBy(partitionKeys.get: _*) else w
+
+      writer.saveAsTable(tableName)
     }
   }
 
