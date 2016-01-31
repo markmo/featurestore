@@ -28,7 +28,7 @@ class HiveDataLoader extends DataLoader {
     val renamed = newNames.foldLeft(df)({
       case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
     })
-    val baseNames = df.schema.fieldNames.toList diff List(idField)
+    val baseNames = renamed.schema.fieldNames.toList diff List(idField)
     val in = renamed
       .withColumn(META_ENTITY_ID, hashKeyUDF(concat(lit(idType), col(idField))))
       .withColumn(META_START_TIME, current_timestamp().cast(TimestampType))

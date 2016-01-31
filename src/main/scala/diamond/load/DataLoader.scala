@@ -8,7 +8,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
   *
   * Created by markmo on 23/01/2016.
   */
-trait DataLoader {
+trait DataLoader extends Serializable {
 
   val META_ENTITY_ID = "entity_id"
   val META_START_TIME = "start_time"

@@ -56,7 +56,7 @@ class ParquetDataLoader extends DataLoader {
     val renamed = newNames.foldLeft(df)({
       case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
     })
-    val baseNames = df.schema.fieldNames.toList diff List(idField)
+    val baseNames = renamed.schema.fieldNames.toList diff List(idField)
     val in = renamed
       .withColumn(META_ENTITY_ID, hashKeyUDF(concat(lit(idType), col(idField))))
       .withColumn(META_START_TIME, current_timestamp().cast(TimestampType))
@@ -69,12 +69,12 @@ class ParquetDataLoader extends DataLoader {
     val header = names ++ List(META_RECTYPE, META_VERSION)
 
     val tablePath = s"/$LAYER_IL/$tableName/$tableName$FILE_EXT"
+    val currentPath = s"$BASE_URI/$LAYER_IL/$tableName/$FILE_CURRENT"
     val sqlContext = df.sqlContext
     val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
 
     if (fs.exists(new Path(tablePath))) {
-      val currentPath = s"$BASE_URI/$LAYER_IL/$tableName/$FILE_CURRENT"
 
       // need to use the __current__ set or join below will match multiple rows
       val ex = sqlContext.read.load(currentPath).cache()
@@ -91,10 +91,10 @@ class ParquetDataLoader extends DataLoader {
         .withColumn(META_VERSION, lit(1))
 
       // records in the new set that are also in the existing set
-      val matchedRecords = in
+      val matched = in
         .join(ex, META_ENTITY_ID)
         .where(in(META_HASHED_VALUE) !== ex(META_HASHED_VALUE))
-        .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
+        .cache()
 
       val (inserts, changes, deletes) =
         if (deleteIndicatorField.isDefined) {
@@ -106,15 +106,15 @@ class ParquetDataLoader extends DataLoader {
             // inserts
             newRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
             // changes
-            matchedRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+            matched.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
             // deletes
             if (overwrite) {
-              val deletesExisting = matchedRecords
+              val deletesExisting = matched
                 .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
+                .select(in(META_START_TIME) :: header.map(ex(_)): _*)
+                .withColumn(META_END_TIME, in(META_START_TIME))
+                .drop(in(META_START_TIME))
                 .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
-                .drop(in(META_END_TIME))
-                .withColumn(META_END_TIME, lit(in(META_START_TIME)))
-                .select(header.map(ex(_)): _*)
 
               Some(deletesNew.unionAll(deletesExisting))
             } else {
@@ -126,23 +126,25 @@ class ParquetDataLoader extends DataLoader {
             // inserts
             newRecords,
             // changes
-            matchedRecords,
+            matched,
             // deletes
             Some(ex
               .join(in, ex(META_ENTITY_ID) === in(META_ENTITY_ID), "left")
               .where(in(META_ENTITY_ID).isNull)
               .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
-              .withColumn(META_VERSION, lit(ex(META_VERSION) + 1))
+              .withColumn(META_VERSION, ex(META_VERSION) + lit(1))
               .select(header.map(ex(_)): _*)
             )
             )
         } else {
-          (newRecords, matchedRecords, None)
+          (newRecords, matched, None)
         }
 
       val updatesNew = changes
-        .withColumn(META_VERSION, lit(ex(META_VERSION) + 1))
-        .select(names.map(in(_)) ++ List(col(META_RECTYPE), col(META_VERSION)): _*)
+        .select(ex(META_VERSION).as("old_version") :: names.map(in(_)): _*)
+        .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
+        .withColumn(META_VERSION, col("old_version") + lit(1))
+        .drop("old_version")
 
       if (writeChangeTables) {
         inserts.cache()
@@ -153,9 +155,10 @@ class ParquetDataLoader extends DataLoader {
       val updates =
         if (overwrite) {
           val updatesExisting = changes
-            .drop(in(META_END_TIME))
-            .withColumn(META_END_TIME, lit(in(META_START_TIME)))
-            .select(header.map(ex(_)): _*)
+            .select(in(META_START_TIME) :: names.map(ex(_)): _*)
+            .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
+            .withColumn(META_END_TIME, in(META_START_TIME))
+            .drop(in(META_START_TIME))
 
           updatesNew.unionAll(updatesExisting)
         } else {
@@ -183,7 +186,9 @@ class ParquetDataLoader extends DataLoader {
         .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
         .map(_._2)
 
-      sqlContext.createDataFrame(latest, ex.schema)
+      val latestDF = sqlContext.createDataFrame(latest, ex.schema)
+
+      latestDF
         .write
         .mode(SaveMode.Overwrite)
         .parquet(currentPath)
@@ -203,28 +208,35 @@ class ParquetDataLoader extends DataLoader {
       }
 
       all.unpersist()
+      matched.unpersist()
       ex.unpersist()
 
     } else {
+      in.cache()
       val w = in
         .drop(idField)
         .withColumn(META_RECTYPE, lit(RECTYPE_INSERT))
         .withColumn(META_VERSION, lit(1))
+        .select(header.map(col): _*)
         .write
         .mode(saveMode)
 
       val writer = if (partitionKeys.isDefined) w.partitionBy(partitionKeys.get: _*) else w
 
       writer.parquet(s"$BASE_URI$tablePath")
+      writer.parquet(currentPath)
+
+      in.unpersist()
     }
   }
 
   def writeChangeTable(fs: FileSystem, df: DataFrame, header: List[String], fileName: String, daysAgo: Int) {
     // remove partitions > daysAgo old
-    removeParts(fs, fileName, daysAgo)
+    try { removeParts(fs, fileName, daysAgo) } catch { case _: Throwable => } //ignore error
     df
       .select(header.map(col): _*)
       .write
+      .mode(SaveMode.Append)
       .partitionBy(META_PROCESS_DATE)
       .parquet(fileName)
   }

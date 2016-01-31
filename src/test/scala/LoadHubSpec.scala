@@ -9,7 +9,7 @@ import org.apache.spark.sql.functions._
 /**
   * Created by markmo on 23/01/2016.
   */
-class LoadSpec extends UnitSpec {
+class LoadHubSpec extends UnitSpec {
 
   val BASE_URI = "hdfs://localhost:9000"
 
@@ -60,98 +60,6 @@ class LoadSpec extends UnitSpec {
     customers.count() should be (20000)
   }
 
-  it should "load customers into a satellite table using Parquet" in {
-    val demo = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics.parquet")
-
-    parquetLoader.loadSatellite(demo,
-      isDelta = false,
-      tableName = "customer_demo",
-      idField = "cust_id",
-      idType = "id1",
-      partitionKeys = None,
-      newNames = Map(
-        "age25to29" -> "age_25_29",
-        "age30to34" -> "age_30_34"
-      )
-    )
-
-    val customers = sqlContext.read.load("hdfs://localhost:9000/il/customer_demo/customer_demo.parquet")
-
-    customers.count() should be (20000)
-  }
-
-  it should "load customers into a satellite table using Hive" in {
-    val demo = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics.parquet")
-
-    hiveLoader.loadSatellite(demo,
-      isDelta = false,
-      tableName = "customer_demo",
-      idField = "cust_id",
-      idType = "id1",
-      partitionKeys = None,
-      newNames = Map(
-        "age25to29" -> "age_25_29",
-        "age30to34" -> "age_30_34"
-      )
-    )
-
-    val customers = sqlContext.sql(
-      """
-        |select *
-        |from customer_demo
-      """.stripMargin)
-
-    customers.count() should be (20000)
-  }
-
-  it should "load deltas into a satellite table using Hive" in {
-    val delta = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics_Delta.parquet")
-
-    hiveLoader.loadSatellite(delta,
-      isDelta = false,
-      tableName = "customer_demo",
-      idField = "cust_id",
-      idType = "id1",
-      partitionKeys = None,
-      newNames = Map(
-        "age25to29" -> "age_25_29",
-        "age30to34" -> "age_30_34"
-      )
-    )
-
-    val customers = sqlContext.sql(
-      """
-        |select *
-        |from customer_demo
-      """.stripMargin)
-
-    customers.count() should be (20010)
-  }
-
-  it should "perform change data capture using Hive" in {
-    val updates = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics_Delta_Updates.parquet")
-
-    hiveLoader.loadSatellite(updates,
-      isDelta = false,
-      tableName = "customer_demo",
-      idField = "cust_id",
-      idType = "id1",
-      partitionKeys = None,
-      newNames = Map(
-        "age25to29" -> "age_25_29",
-        "age30to34" -> "age_30_34"
-      )
-    )
-
-    val customers = sqlContext.sql(
-      """
-        |select *
-        |from customer_demo
-      """.stripMargin)
-
-    customers.count() should be (20020)
-  }
-
   "New Customers" should "be appended to the customer_hub table using Parquet" in {
     val delta = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics_Delta.parquet")
 
@@ -188,10 +96,9 @@ class LoadSpec extends UnitSpec {
     customers.count() should be (20010)
   }
 
-  override def afterAll(): Unit = {
+  override def afterAll() {
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
-    val path = new Path(CUSTOMER_HUB_PATH)
-    fs.delete(path, true)
+    fs.delete(new Path(CUSTOMER_HUB_PATH), true)
     super.afterAll()
   }
 

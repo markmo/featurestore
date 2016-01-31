@@ -193,4 +193,5 @@ RUNNING_PID
 id_rsa
 id_rsa.*
 
-libX
+libX/
+metastore_db/
