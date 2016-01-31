@@ -96,10 +96,11 @@ class LoadHubSpec extends UnitSpec {
     customers.count() should be (20010)
   }
 
+  /*
   override def afterAll() {
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
     fs.delete(new Path(CUSTOMER_HUB_PATH), true)
     super.afterAll()
-  }
+  }*/
 
 }
