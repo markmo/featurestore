@@ -6,7 +6,7 @@ import org.apache.spark.sql.types.{LongType, StringType}
 /**
   * Created by markmo on 31/01/2016.
   */
-object Setup {
+object Setup extends App {
 
   val conf = new SparkConf().setAppName("sparktemplate").setMaster("local[4]")
   val sc = new SparkContext(conf)
@@ -21,7 +21,7 @@ object Setup {
   val deltaNames = delta.schema.fieldNames.toList
 
   val deltaFormatted = delta
-    .select(col("cust_id").cast(StringType).as("cust_id") :: (updatesNames diff List("cust_id")).map(name => col(name).cast(LongType).as(name)): _*)
+    .select(col("cust_id").cast(StringType).as("cust_id") :: (deltaNames diff List("cust_id")).map(name => col(name).cast(LongType).as(name)): _*)
 
   println("###1")
   println(deltaFormatted.printSchema())
