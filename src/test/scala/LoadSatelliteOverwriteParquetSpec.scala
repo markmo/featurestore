@@ -1,13 +1,14 @@
 import java.net.URI
+import java.util.Date
 
 import diamond.load.ParquetDataLoader
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.{Path, FileSystem}
 
 /**
-  * Created by markmo on 23/01/2016.
+  * Created by markmo on 1/02/2016.
   */
-class LoadSatelliteParquetSpec extends UnitSpec {
+class LoadSatelliteOverwriteParquetSpec extends UnitSpec {
 
   val BASE_URI = "hdfs://localhost:9000"
 
@@ -54,7 +55,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     customers.count() should be (20010)
   }
 
-  it should "perform change data capture using Parquet" in {
+  it should "perform change data capture updating changed records by overwriting the Parquet file" in {
     val updates = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics_Delta_Updates.parquet")
 
     parquetLoader.loadSatellite(updates,
@@ -63,6 +64,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
       idField = "cust_id",
       idType = "id1",
       partitionKeys = None,
+      overwrite = true,
       writeChangeTables = true,
       newNames = Map(
         "age25to29" -> "age_25_29",
@@ -83,7 +85,8 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     val cust20010 = joined.where("customer_id = '20010'")
 
     cust20010.count() should be (2)
-    cust20010.where("rectype = 'U'").count() should be (1)
+    cust20010.where("rectype = 'U'").count() should be (2)
+    cust20010.where("version = 1").first().getAs[Date]("end_time") should equal(cust20010.where("version = 2").first().getAs[Date]("start_time"))
 
     val current = sqlContext.read.load("hdfs://localhost:9000/il/customer_demo/current.parquet")
 

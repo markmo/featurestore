@@ -26,6 +26,7 @@ class ParquetDataLoader extends DataLoader {
   val FILE_CHANGED = s"changed$FILE_EXT"
   val FILE_REMOVED = s"removed$FILE_EXT"
   val FILE_CURRENT = s"current$FILE_EXT"
+  val FILE_PREV = s"prev$FILE_EXT"
 
   val LAYER_IL = "il"
 
@@ -84,7 +85,7 @@ class ParquetDataLoader extends DataLoader {
 
       // records in the new set that aren't in the existing set
       val newRecords = in
-        .join(ex, in(META_ENTITY_ID) === ex(META_ENTITY_ID), "left")
+        .join(ex, in(META_ENTITY_ID) === ex(META_ENTITY_ID), "left_outer")
         .where(ex(META_ENTITY_ID).isNull)
         .select(names.map(in(_)): _*)
         .withColumn(META_RECTYPE, lit(RECTYPE_INSERT))
@@ -129,7 +130,7 @@ class ParquetDataLoader extends DataLoader {
             matched,
             // deletes
             Some(ex
-              .join(in, ex(META_ENTITY_ID) === in(META_ENTITY_ID), "left")
+              .join(in, ex(META_ENTITY_ID) === in(META_ENTITY_ID), "left_outer")
               .where(in(META_ENTITY_ID).isNull)
               .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
               .withColumn(META_VERSION, ex(META_VERSION) + lit(1))
@@ -154,11 +155,14 @@ class ParquetDataLoader extends DataLoader {
 
       val updates =
         if (overwrite) {
+          val cols =
+            in(META_START_TIME).as("new_start_time") ::
+            in(META_ENTITY_ID) :: (header diff List(META_ENTITY_ID)).map(ex(_))
           val updatesExisting = changes
-            .select(in(META_START_TIME) :: names.map(ex(_)): _*)
+            .select(cols: _*)
             .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
-            .withColumn(META_END_TIME, in(META_START_TIME))
-            .drop(in(META_START_TIME))
+            .withColumn(META_END_TIME, col("new_start_time"))
+            .select(header.map(col): _*)
 
           updatesNew.unionAll(updatesExisting)
         } else {
@@ -169,19 +173,39 @@ class ParquetDataLoader extends DataLoader {
         case Some(d) => inserts.unionAll(updates).unionAll(d)
         case None => inserts.unionAll(updates)
       }
-      all.cache()
+
+      val main =
+        if (overwrite) {
+          val ex = sqlContext.read.load(s"$BASE_URI$tablePath")
+
+          val prevPath = s"$BASE_URI/$LAYER_IL/$tableName/$FILE_PREV"
+
+          ex.write.mode(SaveMode.Overwrite).parquet(prevPath)
+
+          val prev = sqlContext.read.load(prevPath)
+
+          prev
+            .join(all, prev(META_ENTITY_ID) === all(META_ENTITY_ID) && prev(META_VERSION) === all(META_VERSION), "left_outer")
+            .where(all(META_ENTITY_ID).isNull)
+            .select(header.map(prev(_)): _*)
+            .unionAll(all)
+        } else {
+          all
+        }
+
+      main.cache()
 
       val writer =
         if (partitionKeys.isDefined) {
-          all.write.mode(saveMode).partitionBy(partitionKeys.get: _*)
+          main.write.mode(saveMode).partitionBy(partitionKeys.get: _*)
         } else {
-          all.write.mode(saveMode)
+          main.write.mode(saveMode)
         }
 
       writer.parquet(s"$BASE_URI$tablePath")
 
       // write snapshot
-      val latest: RDD[Row] = ex.unionAll(all)
+      val latest: RDD[Row] = ex.unionAll(main)
         .map(row => (row.getAs[String](META_ENTITY_ID), row))
         .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
         .map(_._2)
@@ -207,7 +231,7 @@ class ParquetDataLoader extends DataLoader {
         }
       }
 
-      all.unpersist()
+      main.unpersist()
       matched.unpersist()
       ex.unpersist()
 
