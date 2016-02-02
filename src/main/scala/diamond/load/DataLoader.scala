@@ -4,6 +4,32 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 /**
+  * A Data Vault 2.0 like process is being employed. There are three types of tables:
+  * * Hubs - contain the mapping of natural keys to hashed keys. This is done partly
+  *          for convenience and partly for privacy.
+  * * Links - contain the many-to-many mapping of hashed keys between entities, e.g.
+  *           between Customer and Account (Service).
+  * * Satellites - contain data attributes of interest against the hashed key
+  *
+  * The benefits of this approach include:
+  * * Fast loading. With hashing, all tables can be loaded in parallel. A step to
+  *   first lookup a surrogate key is not required. Satellite tables map 1:1 with
+  *   source tables so there are no unnecessary joins. The model is optimised for
+  *   load not necessarily query. However, in the analytic asset, feature engineering
+  *   will select only the data required. The model is not intended to serve
+  *   general query access.
+  * * Privacy. Keys and PII data can be separated from non-sensitive data for analysis.
+  *
+  * The standard metadata for a Satellite table includes:
+  * * entity_id - hashed key consisting of the id and id type (as there is the
+  *   possibility of key overlap across different types of id)
+  * * start_time - effective system start time
+  * * end_time - effective system end time
+  * * process_date - the date on which the file/table is processed
+  * * rectype - the type of write operation (I)nsert, (U)pdate, (D)elete
+  * * version - an incrementing integer to indicate the record version. Highest
+  *             is latest.
+  * * hashed_value - the hash of all the non-key attributes (excluding this metadata)
   *
   *
   * Created by markmo on 23/01/2016.
@@ -32,6 +58,27 @@ trait DataLoader extends Serializable {
     StructField("process_time", StringType) :: Nil
   )
 
+  /**
+    *
+    * @param df DataFrame the DataFrame of the file/table to load into the Satellite table
+    * @param isDelta Boolean to indicate whether the file contains deltas or a full refresh
+    * @param tableName String name of the Satellite table
+    * @param idField String name of the primary key field
+    * @param idType String type of identifier, e.g. Siebel Customer Number, FNN
+    * @param deleteIndicatorField Option[(String, Any)] a tuple with the first value the
+    *                             name of the field that indicates a record has been deleted
+    *                             and the second value the value set if the record has been
+    *                             marked for deletion
+    * @param partitionKeys Option[List[String]] an optional list of fields to partition on
+    * @param newNames Map[String, String] a dictionary of new column names mapped to the
+    *                 old names
+    * @param overwrite Boolean to indicate whether changes should overwrite the Satellite
+    *                  table and therefore existing records can be updated, e.g. setting
+    *                  the `end_time`
+    * @param writeChangeTables Boolean to indicate whether change table should be written.
+    *                          Separate change tables for new records, updated records,
+    *                          and deleted records are written for processing purposes.
+    */
   def loadSatellite(df: DataFrame,
                     isDelta: Boolean,
                     tableName: String,
