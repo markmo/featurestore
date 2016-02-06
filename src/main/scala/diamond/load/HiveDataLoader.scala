@@ -198,6 +198,7 @@ class HiveDataLoader extends DataLoader {
               validStartTimeField: Option[(String, String)] = None,
               validEndTimeField: Option[(String, String)] = None,
               deleteIndicatorField: Option[(String, Any)] = None,
+              newNames: Map[String, String] = Map(),
               overwrite: Boolean = false) = ???
 
   def registerCustomers(df: DataFrame, idField: String, idType: String, processId: String) {

@@ -21,7 +21,10 @@ class LoadSatelliteParquetSpec extends UnitSpec {
       tableName = "customer_demo",
       idFields = List("cust_id"),
       idType = "id1",
+      source = "test",
+      processType = "test",
       processId = "test",
+      userId = "test",
       partitionKeys = None,
       newNames = Map(
         "age25to29" -> "age_25_29",
@@ -42,7 +45,10 @@ class LoadSatelliteParquetSpec extends UnitSpec {
       tableName = "customer_demo",
       idFields = List("cust_id"),
       idType = "id1",
+      source = "test",
+      processType = "test",
       processId = "test",
+      userId = "test",
       partitionKeys = None,
       writeChangeTables = true,
       newNames = Map(
@@ -64,7 +70,10 @@ class LoadSatelliteParquetSpec extends UnitSpec {
       tableName = "customer_demo",
       idFields = List("cust_id"),
       idType = "id1",
+      source = "test",
+      processType = "test",
       processId = "test",
+      userId = "test",
       partitionKeys = None,
       writeChangeTables = true,
       newNames = Map(

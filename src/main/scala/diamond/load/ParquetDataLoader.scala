@@ -7,10 +7,13 @@ import diamond.utility.functions._
 import diamond.utility.udfs._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.TimestampType
-import org.apache.spark.sql.{DataFrame, Row, SaveMode}
+import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
+
+import scala.util.hashing.MurmurHash3
 
 /**
   * Parquet writes columns out of order (compared to the schema)
@@ -476,6 +479,7 @@ class ParquetDataLoader extends DataLoader {
               validStartTimeField: Option[(String, String)] = None,
               validEndTimeField: Option[(String, String)] = None,
               deleteIndicatorField: Option[(String, Any)] = None,
+              newNames: Map[String, String] = Map(),
               overwrite: Boolean = false) {
 
     if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
@@ -620,8 +624,208 @@ class ParquetDataLoader extends DataLoader {
           sqlContext.sql(sqlNewEntities)
         }
 
-      all.write
+      val renamed = newNames.foldLeft(all)({
+        case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
+      })
+
+      renamed.write
         .partitionBy("id_type")
+        .mode(saveMode)
+        .parquet(s"$BASE_URI$path")
+
+      // write snapshot
+      val latest: RDD[Row] = renamed
+        .map(row => (row.getAs[String](META_ENTITY_ID), row))
+        .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
+        .map(_._2)
+
+      val latestDF = sqlContext.createDataFrame(latest, renamed.schema)
+
+      latestDF
+        .write
+        .mode(SaveMode.Overwrite)
+        .parquet(currentPath)
+
+    } else {
+      val entities = sqlContext.sql(sql)
+      val renamed = newNames.foldLeft(entities)({
+        case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
+      })
+
+      renamed.write
+        .partitionBy("id_type")
+        .mode(saveMode)
+        .parquet(s"$BASE_URI$path")
+    }
+  }
+
+  def loadMapping(df: DataFrame,
+                  isDelta: Boolean,
+                  entityType: String,
+                  idFields1: List[String], idType1: String,
+                  idFields2: List[String], idType2: String,
+                  confidence: Double,
+                  source: String,
+                  processType: String,
+                  processId: String,
+                  userId: String,
+                  tableName: Option[String] = None,
+                  validStartTimeField: Option[(String, String)] = None,
+                  validEndTimeField: Option[(String, String)] = None,
+                  deleteIndicatorField: Option[(String, Any)] = None,
+                  overwrite: Boolean = false) {
+
+    if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
+    val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
+    val tn = if (tableName.isDefined) tableName.get else s"${entityType.toLowerCase}_mapping"
+    val path = s"/$LAYER_IL/$tn$FILE_EXT"
+    val currentPath = s"$BASE_URI/$LAYER_IL/$tn/$FILE_CURRENT"
+    val sqlContext = df.sqlContext
+    sqlContext.udf.register("hashKey", hashKey(_: String))
+    sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
+    df.registerTempTable("imported")
+    val idCols1 = idFields1.map(f => s"i.$f").mkString(",")
+    val idCols2 = idFields2.map(f => s"i.$f").mkString(",")
+    val (validStartTimeFieldLit, validEndTimeFieldLit, validStartTimeExpr, validEndTimeExpr) =
+      if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
+        (
+          s"'${validStartTimeField.get._1}'",
+          s"'${validEndTimeField.get._1}'",
+          s"convertStringToTimestamp(i.${validStartTimeField.get._1}, '${validStartTimeField.get._2}'",
+          s"convertStringToTimestamp(i.${validEndTimeField.get._1}, '${validEndTimeField.get._2}'"
+          )
+      } else {
+        (NULL_TYPE, NULL_TYPE, "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
+      }
+
+    val deleteIndicatorFieldName =
+      if (deleteIndicatorField.isDefined) {
+        s"'${deleteIndicatorField.get._1}'"
+      } else {
+        NULL_TYPE
+      }
+
+    val sql =
+      s"""
+         |select hashKey(concat('$idType1',$idCols1)) as entity_id_1
+         |,hashKey(concat('$idType2',$idCols2)) as entity_id_2
+         |,'$entityType' as entity_type
+         |,'$idType1' as id_type_1
+         |,'$idType2' as id_type_2
+         |,$confidence as confidence
+         |,current_timestamp() as start_time
+         |,'$META_OPEN_END_DATE_VALUE' as end_time
+         |,'$source' as source
+         |,'$processType' as process_type
+         |,'$processId' as process_id
+         |,current_date() as process_date
+         |,'$userId' as user_id
+         |,$validStartTimeFieldLit as valid_start_time_field
+         |,$validEndTimeFieldLit as valid_end_time_field
+         |,$validStartTimeExpr as valid_start_time
+         |,$validEndTimeExpr as valid_end_time
+         |,$deleteIndicatorFieldName as delete_indicator_field
+         |,'$RECTYPE_INSERT' as rectype
+         |,1 as version
+         |from imported i
+      """.stripMargin
+
+    val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
+
+    if (fs.exists(new Path(path))) {
+      val existing = sqlContext.read.load(s"$BASE_URI$path")
+      existing.registerTempTable("existing")
+      val sqlNewLinks =
+        s"""
+           |$sql
+           |left join existing e on e.entity_id_1 = hashKey(concat('$idType1',$idCols1))
+           |and e.entity_id_2 = hashKey(concat('$idType2',$idCols2))
+           |where e.entity_id is null
+        """.stripMargin
+
+      val validStartExpr =
+        if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
+          validStartTimeExpr
+        } else {
+          s"e.valid_start_time"
+        }
+
+      val selectExisting =
+        s"""
+           |select e.entity_id_1
+           |,e.entity_id_2
+           |,e.entity_type
+           |,e.id_type_1
+           |,e.id_type_2
+           |,e.confidence
+           |,e.start_time
+           |,current_timestamp() as end_time
+           |,'$source' as source
+           |,'$processType' as process_type
+           |,'$processId' as process_id
+           |,current_date() as process_date
+           |,'$userId' as user_id
+           |,$validStartTimeFieldLit as valid_start_time_field
+           |,$validEndTimeFieldLit as valid_end_time_field
+           |,$validStartExpr as valid_start_time
+           |,$validEndTimeExpr as valid_end_time
+           |,$deleteIndicatorFieldName as delete_indicator_field
+           |,'$RECTYPE_DELETE' as rectype
+           |,e.version + 1 as version
+           |from existing e
+           |inner join
+           |(select entity_id, max(version) as max_version
+           |from existing
+           |group by entity_id) e1 on e1.entity_id = e.entity_id and e1.version = e.version
+         """.stripMargin
+
+      val all =
+        if (deleteIndicatorField.isDefined) {
+          val delIndField = deleteIndicatorField.get._1
+          val delIndFieldVal = deleteIndicatorField.get._2.toString
+          val delIndFieldLit = if (isNumber(delIndFieldVal)) delIndFieldVal else s"'$delIndFieldVal'"
+
+          // inserts
+          val inserts = sqlContext.sql(
+            s"""
+               |$sqlNewLinks
+               |and i.$delIndField <> $delIndFieldLit
+            """.stripMargin)
+
+          if (overwrite) {
+            inserts
+          } else {
+            // union deletes
+            inserts.unionAll(sqlContext.sql(
+              s"""
+                 |$selectExisting
+                 |join imported i on e.entity_id_1 = hashKey(concat('$idType1',$idCols1))
+                 |and e.entity_id_2 = hashKey(concat('$idType2',$idCols2))
+                 |where i.$delIndField = $delIndFieldLit
+              """.stripMargin))
+          }
+        } else if (!isDelta) {
+          // inserts
+          val inserts = sqlContext.sql(sqlNewLinks)
+          if (overwrite) {
+            inserts
+          } else {
+            // union deletes
+            inserts.unionAll(sqlContext.sql(
+              s"""
+                 |$selectExisting
+                 |left join imported i on e.entity_id_1 = hashKey(concat('$idType1',$idCols1))
+                 |and e.entity_id_2 = hashKey(concat('$idType2',$idCols2))
+                 |where i.entity_id is null
+              """.stripMargin))
+          }
+        } else {
+          // inserts
+          sqlContext.sql(sqlNewLinks)
+        }
+
+      all.write
+        .partitionBy("id_type_1", "id_type_2")
         .mode(saveMode)
         .parquet(s"$BASE_URI$path")
 
@@ -639,14 +843,51 @@ class ParquetDataLoader extends DataLoader {
         .parquet(currentPath)
 
     } else {
-      val entities = sqlContext.sql(sql)
+      val links = sqlContext.sql(sql)
 
-      entities.write
-        .partitionBy("id_type")
+      links.write
+        .partitionBy("id_type_1", "id_type_2")
         .mode(saveMode)
         .parquet(s"$BASE_URI$path")
     }
   }
+
+  def readCurrentMapping(sqlContext: SQLContext, entityType: String, tableName: Option[String] = None) = {
+    val tn = if (tableName.isDefined) tableName.get else s"${entityType.toLowerCase}_mapping"
+    sqlContext.read.load(s"$BASE_URI/$LAYER_IL/$tn$FILE_EXT")
+  }
+
+  def vertices(df: DataFrame): RDD[(VertexId, String)] = {
+    import df.sqlContext.implicits._
+
+    df.select($"entity_id_1", $"entity_id_2")
+      .flatMap(x => Iterable(x(0).toString, x(1).toString))
+      .distinct()
+      .map(x => (vertexId(x), x))
+  }
+
+  def edges(df: DataFrame): RDD[Edge[Double]] = {
+    import df.sqlContext.implicits._
+
+    df.select($"entity_id_1", $"entity_id_2", $"confidence")
+      .map(x => ((vertexId(x(0)), vertexId(x(1))), x(2).asInstanceOf[Double]))
+      .reduceByKey(_+_)
+      .map(x => Edge(x._1._1, x._1._2, x._2))
+  }
+
+  def graph(vs: RDD[(VertexId, String)], es: RDD[Edge[Double]]) = {
+    val defaultEntity = "Missing"
+    Graph(vs, es, defaultEntity)
+  }
+
+  def customerGraph(sqlContext: SQLContext) = {
+    val df = readCurrentMapping(sqlContext, "customer")
+    graph(vertices(df), edges(df))
+  }
+
+  def vertexId(str: String): VertexId = MurmurHash3.stringHash(str)
+
+  def vertexId(x: Any): VertexId = vertexId(x.toString)
 
   def writeChangeTable(fs: FileSystem, df: DataFrame, header: List[String], fileName: String, daysAgo: Int) {
     // remove partitions > daysAgo old

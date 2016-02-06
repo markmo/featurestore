@@ -140,6 +140,7 @@ trait DataLoader extends Serializable {
               validStartTimeField: Option[(String, String)] = None,
               validEndTimeField: Option[(String, String)] = None,
               deleteIndicatorField: Option[(String, Any)] = None,
+              newNames: Map[String, String] = Map(),
               overwrite: Boolean = false)
 
 }
