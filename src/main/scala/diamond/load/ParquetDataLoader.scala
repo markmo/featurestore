@@ -30,18 +30,7 @@ class ParquetDataLoader extends DataLoader {
 
   val LAYER_IL = "il"
 
-  val CUSTOMER_HUB_PATH = s"/$LAYER_IL/customer_hub$FILE_EXT"
-
-  // TODO
-  // Cover each scenario:
-  // * Delta
-  // * Full
-  // * With effective dates
-  // * Without
-  // * With delete indicator
-  // * Without
-  // * Overwrite
-  // * Append-only
+  val NULL_TYPE = "NULL"
 
   def loadSatellite(df: DataFrame,
                     isDelta: Boolean,
@@ -323,14 +312,14 @@ class ParquetDataLoader extends DataLoader {
           s"convertStringToTimestamp(i.${validEndTimeField.get._1}, '${validEndTimeField.get._2}'"
           )
       } else {
-        ("NULL", "NULL", "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
+        (NULL_TYPE, NULL_TYPE, "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
       }
 
     val deleteIndicatorFieldName =
       if (deleteIndicatorField.isDefined) {
         s"'${deleteIndicatorField.get._1}'"
       } else {
-        "NULL"
+        NULL_TYPE
       }
 
     val sql =
@@ -508,14 +497,14 @@ class ParquetDataLoader extends DataLoader {
           s"convertStringToTimestamp(i.${validEndTimeField.get._1}, '${validEndTimeField.get._2}'"
           )
       } else {
-        ("NULL", "NULL", "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
+        (NULL_TYPE, NULL_TYPE, "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
       }
 
     val deleteIndicatorFieldName =
       if (deleteIndicatorField.isDefined) {
         s"'${deleteIndicatorField.get._1}'"
       } else {
-        "NULL"
+        NULL_TYPE
       }
 
     val sql =
@@ -656,65 +645,6 @@ class ParquetDataLoader extends DataLoader {
         .partitionBy("id_type")
         .mode(saveMode)
         .parquet(s"$BASE_URI$path")
-    }
-  }
-
-  def registerCustomers(df: DataFrame, idFields: List[String], idType: String, processId: String) {
-    val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
-    val path = new Path(CUSTOMER_HUB_PATH)
-    val sqlContext = df.sqlContext
-    sqlContext.udf.register("hashKey", hashKey(_: String))
-    df.registerTempTable("imported")
-
-    val idCols =
-      if (idFields.length == 1) {
-        s"i.${idFields.head} as customer_id"
-      } else {
-        idFields.map(f => s"i.$f").mkString(",")
-      }
-
-    val sql =
-      s"""
-         |select hashKey(concat('$idType',$idCols)) as entity_id
-         |,$idCols
-         |,'$idType' as customer_id_type
-         |,current_timestamp() as start_time
-         |,'$META_OPEN_END_DATE_VALUE' as end_time
-         |,'$processId' as process_id
-         |,current_date() as process_date
-         |,1 as version
-         |from imported i
-      """.stripMargin
-
-    if (fs.exists(path)) {
-      val existing = sqlContext.read.load(s"$BASE_URI$CUSTOMER_HUB_PATH")
-      existing.registerTempTable("existing")
-
-      val joinPredicates =
-        if (idFields.length == 1) {
-          s"e.customer_id = i.${idFields.head}"
-        } else {
-          idFields.map(f => s"e.$f = i.$f").mkString(" and ")
-        }
-
-      val newCustomers = sqlContext.sql(
-        s"""
-           |$sql
-           |left join existing e on $joinPredicates and e.customer_id_type = '$idType'
-           |where e.entity_id is null
-        """.stripMargin)
-
-      newCustomers.write
-        .partitionBy("customer_id_type")
-        .mode(SaveMode.Append)
-        .parquet(s"$BASE_URI$CUSTOMER_HUB_PATH")
-
-    } else {
-      val customers = sqlContext.sql(sql)
-
-      customers.write
-        .partitionBy("customer_id_type")
-        .parquet(s"$BASE_URI$CUSTOMER_HUB_PATH")
     }
   }
 

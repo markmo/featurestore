@@ -187,7 +187,18 @@ class HiveDataLoader extends DataLoader {
                deleteIndicatorField: Option[(String, Any)] = None,
                overwrite: Boolean = false) = ???
 
-  def loadHub(df: DataFrame, entityType: String, idFields: List[String], idType: String, processId: String) = ???
+  def loadHub(df: DataFrame,
+              isDelta: Boolean,
+              entityType: String, idFields: List[String], idType: String,
+              source: String,
+              processType: String,
+              processId: String,
+              userId: String,
+              tableName: Option[String] = None,
+              validStartTimeField: Option[(String, String)] = None,
+              validEndTimeField: Option[(String, String)] = None,
+              deleteIndicatorField: Option[(String, Any)] = None,
+              overwrite: Boolean = false) = ???
 
   def registerCustomers(df: DataFrame, idField: String, idType: String, processId: String) {
     val sqlContext = df.sqlContext
