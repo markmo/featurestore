@@ -39,11 +39,20 @@ trait DataLoader extends Serializable {
   val META_ENTITY_ID = "entity_id"
   val META_START_TIME = "start_time"
   val META_END_TIME = "end_time"
+  val META_SOURCE = "source"
+  val META_PROCESS_TYPE = "process_type"
+  val META_PROCESS_ID = "process_id"
   val META_PROCESS_DATE = "process_date"
+  val META_USER_ID = "user_id"
+  val META_HASHED_VALUE = "hashed_value"
   val META_RECTYPE = "rectype"
   val META_VERSION = "version"
-  val META_HASHED_VALUE = "hashed_value"
   val META_OPEN_END_DATE_VALUE = "9999-12-31"
+  val META_VALID_START_TIME_FIELD = "valid_start_time_field"
+  val META_VALID_END_TIME_FIELD = "valid_end_time_field"
+  val META_VALID_START_TIME = "valid_start_time"
+  val META_VALID_END_TIME = "valid_end_time"
+  val META_DELETE_INDICATOR_FIELD = "delete_indicator_field"
 
   val RECTYPE_INSERT = "I"
   val RECTYPE_UPDATE = "U"
@@ -63,8 +72,18 @@ trait DataLoader extends Serializable {
     * @param df DataFrame the DataFrame of the file/table to load into the Satellite table
     * @param isDelta Boolean to indicate whether the file contains deltas or a full refresh
     * @param tableName String name of the Satellite table
-    * @param idField String name of the primary key field
+    * @param idFields Seq[String] name of the primary key field
     * @param idType String type of identifier, e.g. Siebel Customer Number, FNN
+    * @param source String source system name
+    * @param processType String type of process, e.g. "Load Delta", "Load History Full"
+    * @param processId String unique process id
+    * @param userId String user or system account of process
+    * @param validStartTimeField Option[(String, Any)] a tuple with the first value the
+    *                            name of the field that contains the valid (business) start
+    *                            time and the second value the time format
+    * @param validEndTimeField Option[(String, Any)] a tuple with the first value the
+    *                          name of the field that contains the valid (business) end
+    *                          time and the second value the time format
     * @param deleteIndicatorField Option[(String, Any)] a tuple with the first value the
     *                             name of the field that indicates a record has been deleted
     *                             and the second value the value set if the record has been
@@ -82,14 +101,36 @@ trait DataLoader extends Serializable {
   def loadSatellite(df: DataFrame,
                     isDelta: Boolean,
                     tableName: String,
-                    idField: String,
+                    idFields: List[String],
                     idType: String,
+                    source: String,
+                    processType: String,
+                    processId: String,
+                    userId: String,
+                    validStartTimeField: Option[(String, String)] = None,
+                    validEndTimeField: Option[(String, String)] = None,
                     deleteIndicatorField: Option[(String, Any)] = None,
                     partitionKeys: Option[List[String]] = None,
                     newNames: Map[String, String] = Map(),
                     overwrite: Boolean = false,
                     writeChangeTables: Boolean = false)
 
-  def registerCustomers(df: DataFrame, idField: String, idType: String)
+  def loadLink(df: DataFrame,
+               isDelta: Boolean,
+               entityType1: String, idFields1: List[String], idType1: String,
+               entityType2: String, idFields2: List[String], idType2: String,
+               source: String,
+               processType: String,
+               processId: String,
+               userId: String,
+               tableName: Option[String] = None,
+               validStartTimeField: Option[(String, String)] = None,
+               validEndTimeField: Option[(String, String)] = None,
+               deleteIndicatorField: Option[(String, Any)] = None,
+               overwrite: Boolean = false)
+
+  def loadHub(df: DataFrame, entityType: String, idFields: List[String], idType: String, processId: String)
+
+  def registerCustomers(df: DataFrame, idFields: List[String], idType: String, processId: String)
 
 }

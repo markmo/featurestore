@@ -97,6 +97,9 @@ object functions {
   def fastHash(str: String) =
     LongHashFunction.xx_r39().hashChars(str).toString
 
+  def isNumber(str: String) =
+    str.matches(s"""[+-]?((\d+(e\d+)?[lL]?)|(((\d+(\.\d*)?)|(\.\d+))(e\d+)?[fF]?))""")
+
   /**
     * Using the "pimp my library" pattern.
     *

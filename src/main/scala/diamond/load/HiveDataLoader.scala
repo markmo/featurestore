@@ -17,8 +17,14 @@ class HiveDataLoader extends DataLoader {
   def loadSatellite(df: DataFrame,
                     isDelta: Boolean,
                     tableName: String,
-                    idField: String,
+                    idFields: List[String],
                     idType: String,
+                    source: String,
+                    processType: String,
+                    processId: String,
+                    userId: String,
+                    validStartTimeField: Option[(String, String)] = None,
+                    validEndTimeField: Option[(String, String)] = None,
                     deleteIndicatorField: Option[(String, Any)] = None,
                     partitionKeys: Option[List[String]] = None,
                     newNames: Map[String, String] = Map(),
@@ -28,11 +34,12 @@ class HiveDataLoader extends DataLoader {
     val renamed = newNames.foldLeft(df)({
       case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
     })
-    val baseNames = renamed.schema.fieldNames.toList diff List(idField)
+    val baseNames = renamed.schema.fieldNames.toList diff idFields
     val in = renamed
-      .withColumn(META_ENTITY_ID, hashKeyUDF(concat(lit(idType), col(idField))))
+      .withColumn(META_ENTITY_ID, hashKeyUDF(concat(lit(idType), concat(idFields.map(col): _*))))
       .withColumn(META_START_TIME, current_timestamp().cast(TimestampType))
       .withColumn(META_END_TIME, lit(META_OPEN_END_DATE_VALUE).cast(TimestampType))
+      .withColumn(META_PROCESS_ID, lit(processId))
       .withColumn(META_PROCESS_DATE, current_date())
       .withColumn(META_HASHED_VALUE, fastHashUDF(concat(baseNames.map(col): _*)))
 
@@ -151,8 +158,10 @@ class HiveDataLoader extends DataLoader {
       updates.unpersist()
 
     } else {
-      val w = in
-        .drop(idField)
+      val out = idFields.foldLeft(in)({
+        case (d, idField) => d.drop(idField)
+      })
+      val w = out
         .withColumn(META_RECTYPE, lit(RECTYPE_INSERT))
         .withColumn(META_VERSION, lit(1))
         .write
@@ -164,7 +173,23 @@ class HiveDataLoader extends DataLoader {
     }
   }
 
-  def registerCustomers(df: DataFrame, idField: String, idType: String) {
+  def loadLink(df: DataFrame,
+               isDelta: Boolean,
+               entityType1: String, idFields1: List[String], idType1: String,
+               entityType2: String, idFields2: List[String], idType2: String,
+               source: String,
+               processType: String,
+               processId: String,
+               userId: String,
+               tableName: Option[String] = None,
+               validStartTimeField: Option[(String, String)] = None,
+               validEndTimeField: Option[(String, String)] = None,
+               deleteIndicatorField: Option[(String, Any)] = None,
+               overwrite: Boolean = false) = ???
+
+  def loadHub(df: DataFrame, entityType: String, idFields: List[String], idType: String, processId: String) = ???
+
+  def registerCustomers(df: DataFrame, idField: String, idType: String, processId: String) {
     val sqlContext = df.sqlContext
     sqlContext.sql(
       """

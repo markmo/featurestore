@@ -19,8 +19,9 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     parquetLoader.loadSatellite(demo,
       isDelta = false,
       tableName = "customer_demo",
-      idField = "cust_id",
+      idFields = List("cust_id"),
       idType = "id1",
+      processId = "test",
       partitionKeys = None,
       newNames = Map(
         "age25to29" -> "age_25_29",
@@ -39,8 +40,9 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     parquetLoader.loadSatellite(delta,
       isDelta = true,
       tableName = "customer_demo",
-      idField = "cust_id",
+      idFields = List("cust_id"),
       idType = "id1",
+      processId = "test",
       partitionKeys = None,
       writeChangeTables = true,
       newNames = Map(
@@ -60,8 +62,9 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     parquetLoader.loadSatellite(updates,
       isDelta = true,
       tableName = "customer_demo",
-      idField = "cust_id",
+      idFields = List("cust_id"),
       idType = "id1",
+      processId = "test",
       partitionKeys = None,
       writeChangeTables = true,
       newNames = Map(
