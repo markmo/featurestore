@@ -12,18 +12,27 @@ import org.apache.spark.sql.functions._
 class LoadHubSpec extends UnitSpec {
 
   val BASE_URI = "hdfs://localhost:9000"
-
-  val CUSTOMER_HUB_PATH = "/il/customer_hub.parquet"
+  val LAYER_RAW = "base"
+  val LAYER_ACQUISITION = "acquisition"
 
   val parquetLoader = new ParquetDataLoader
   val hiveLoader = new HiveDataLoader
 
   "Customers" should "be registered into the customer_hub table using Parquet" in {
-    val demo = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics.parquet")
+    val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
 
-    parquetLoader.registerCustomers(demo, "cust_id", "id1")
+    parquetLoader.loadHub(df = demo,
+      isDelta = false,
+      entityType = "customer",
+      idFields = List("cust_id"),
+      idType = "id1",
+      source = "test",
+      processType = "test",
+      processId = "test",
+      userId = "test"
+    )
 
-    val customers = sqlContext.read.load("hdfs://localhost:9000/il/customer_hub.parquet")
+    val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub.parquet")
 
     val schema = customers.schema
 
@@ -39,9 +48,18 @@ class LoadHubSpec extends UnitSpec {
   }
 
   it should "be registered into the customer_hub table using Hive" in {
-    val demo = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics.parquet")
+    val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
 
-    hiveLoader.registerCustomers(demo, "cust_id", "id1")
+    hiveLoader.loadHub(df = demo,
+      isDelta = false,
+      entityType = "customer",
+      idFields = List("cust_id"),
+      idType = "id1",
+      source = "test",
+      processType = "test",
+      processId = "test",
+      userId = "test"
+    )
 
     val customers = sqlContext.sql(
       """
@@ -61,11 +79,20 @@ class LoadHubSpec extends UnitSpec {
   }
 
   "New Customers" should "be appended to the customer_hub table using Parquet" in {
-    val delta = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics_Delta.parquet")
+    val delta = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta.parquet")
 
-    parquetLoader.registerCustomers(delta, "cust_id", "id1")
+    parquetLoader.loadHub(df = delta,
+      isDelta = true,
+      entityType = "customer",
+      idFields = List("cust_id"),
+      idType = "id1",
+      source = "test",
+      processType = "test",
+      processId = "test",
+      userId = "test"
+    )
 
-    val customers = sqlContext.read.load("hdfs://localhost:9000/il/customer_hub.parquet")
+    val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub.parquet")
 
     val schema = customers.schema
 
@@ -76,9 +103,18 @@ class LoadHubSpec extends UnitSpec {
   }
 
   it should "be appended to the customer_hub table using Hive" in {
-    val delta = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics_Delta.parquet")
+    val delta = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta.parquet")
 
-    hiveLoader.registerCustomers(delta, "cust_id", "id1")
+    hiveLoader.loadHub(df = delta,
+      isDelta = true,
+      entityType = "customer",
+      idFields = List("cust_id"),
+      idType = "id1",
+      source = "test",
+      processType = "test",
+      processId = "test",
+      userId = "test"
+    )
 
     val customers = sqlContext.sql(
       """
@@ -99,7 +135,7 @@ class LoadHubSpec extends UnitSpec {
   /*
   override def afterAll() {
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
-    fs.delete(new Path(CUSTOMER_HUB_PATH), true)
+    fs.delete(new Path(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub.parquet"), true)
     super.afterAll()
   }*/
 

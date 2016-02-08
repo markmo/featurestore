@@ -187,6 +187,22 @@ class HiveDataLoader extends DataLoader {
                deleteIndicatorField: Option[(String, Any)] = None,
                overwrite: Boolean = false) = ???
 
+  def registerCustomers(df: DataFrame,
+                        isDelta: Boolean,
+                        idField: String, idType: String,
+                        source: String,
+                        processType: String,
+                        processId: String,
+                        userId: String) = ???
+
+  def registerServices(df: DataFrame,
+                       isDelta: Boolean,
+                       idField: String, idType: String,
+                       source: String,
+                       processType: String,
+                       processId: String,
+                       userId: String) = ???
+
   def loadHub(df: DataFrame,
               isDelta: Boolean,
               entityType: String, idFields: List[String], idType: String,
@@ -199,9 +215,8 @@ class HiveDataLoader extends DataLoader {
               validEndTimeField: Option[(String, String)] = None,
               deleteIndicatorField: Option[(String, Any)] = None,
               newNames: Map[String, String] = Map(),
-              overwrite: Boolean = false) = ???
+              overwrite: Boolean = false) = {
 
-  def registerCustomers(df: DataFrame, idField: String, idType: String, processId: String) {
     val sqlContext = df.sqlContext
     sqlContext.sql(
       """
@@ -216,14 +231,17 @@ class HiveDataLoader extends DataLoader {
     sqlContext.sql(
       s"""
          |insert into customer_hub
-         |select hashKey(concat('$idType',i.$idField)) as entity_id
-         |,i.$idField as customer_id
+         |select hashKey(concat('$idType',i.${idFields(0)})) as entity_id
+         |,i.${idFields(0)} as customer_id
          |,'$idType' as customer_id_type
          |,current_timestamp() as process_time
          |from imported i
-         |left join customer_hub e on e.customer_id = i.$idField and e.customer_id_type = '$idType'
+         |left join customer_hub e on e.customer_id = i.${idFields(0)} and e.customer_id_type = '$idType'
          |where e.entity_id is null
       """.stripMargin)
+  }
+
+  def registerCustomers(df: DataFrame, idField: String, idType: String, processId: String) {
   }
 
 }

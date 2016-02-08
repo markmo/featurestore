@@ -10,7 +10,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.TimestampType
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
 
 import scala.util.hashing.MurmurHash3
@@ -29,11 +29,13 @@ class ParquetDataLoader extends DataLoader {
   val FILE_CHANGED = s"changed$FILE_EXT"
   val FILE_REMOVED = s"removed$FILE_EXT"
   val FILE_CURRENT = s"current$FILE_EXT"
+  val FILE_HISTORY = s"history$FILE_EXT"
+  val FILE_PROCESS = "process.csv"
   val FILE_PREV = s"prev$FILE_EXT"
 
-  val LAYER_IL = "il"
+  val LAYER_ACQUISITION = "acquisition"
 
-  val NULL_TYPE = "NULL"
+  val NA_EXPR = "'NA'"
 
   def loadSatellite(df: DataFrame,
                     isDelta: Boolean,
@@ -67,11 +69,11 @@ class ParquetDataLoader extends DataLoader {
       .withColumn(META_PROCESS_DATE, current_date())
       .withColumn(META_USER_ID, lit(userId))
       .withColumn(META_HASHED_VALUE, fastHashUDF(concat(baseNames.map(col): _*)))
-      .withColumn(META_VALID_START_TIME_FIELD, lit(null))
-      .withColumn(META_VALID_END_TIME_FIELD, lit(null))
+      .withColumn(META_VALID_START_TIME_FIELD, lit("NA"))
+      .withColumn(META_VALID_END_TIME_FIELD, lit("NA"))
       .withColumn(META_VALID_START_TIME, current_timestamp().cast(TimestampType))
       .withColumn(META_VALID_END_TIME, lit(META_OPEN_END_DATE_VALUE).cast(TimestampType))
-      .withColumn(META_DELETE_INDICATOR_FIELD, lit(null))
+      .withColumn(META_DELETE_INDICATOR_FIELD, lit("NA"))
 
     val t1 = if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
       t
@@ -91,18 +93,21 @@ class ParquetDataLoader extends DataLoader {
 
     // add column headers for process metadata
     val names = META_ENTITY_ID :: baseNames ++
-      List(META_VALID_START_TIME_FIELD, META_VALID_END_TIME_FIELD,
+      List(
+        META_VALID_START_TIME_FIELD, META_VALID_END_TIME_FIELD,
         META_VALID_START_TIME, META_VALID_END_TIME,
         META_START_TIME, META_END_TIME,
-        META_DELETE_INDICATOR_FIELD, META_PROCESS_DATE, META_HASHED_VALUE)
+        META_DELETE_INDICATOR_FIELD,
+        META_PROCESS_DATE, META_HASHED_VALUE)
 
     val header = names ++ List(META_RECTYPE, META_VERSION)
 
-    val tablePath = s"/$LAYER_IL/$tableName/$tableName$FILE_EXT"
-    val currentPath = s"$BASE_URI/$LAYER_IL/$tableName/$FILE_CURRENT"
+    val tablePath = s"/$LAYER_ACQUISITION/$tableName/$FILE_HISTORY"
+    val currentPath = s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_CURRENT"
     val sqlContext = df.sqlContext
     val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
+    val now = DateTime.now()
 
     if (fs.exists(new Path(tablePath))) {
 
@@ -206,7 +211,7 @@ class ParquetDataLoader extends DataLoader {
       val main =
         if (overwrite) {
           val ex = sqlContext.read.load(s"$BASE_URI$tablePath")
-          val prevPath = s"$BASE_URI/$LAYER_IL/$tableName/$FILE_PREV"
+          val prevPath = s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_PREV"
           ex.write.mode(SaveMode.Overwrite).parquet(prevPath)
           val prev = sqlContext.read.load(prevPath)
           prev
@@ -230,28 +235,25 @@ class ParquetDataLoader extends DataLoader {
       writer.parquet(s"$BASE_URI$tablePath")
 
       // write snapshot
-      val latest: RDD[Row] = ex.unionAll(main)
-        .map(row => (row.getAs[String](META_ENTITY_ID), row))
-        .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
-        .map(_._2)
-
-      val latestDF = sqlContext.createDataFrame(latest, ex.schema)
+      val latestDF = snapshot(ex.unionAll(main))
 
       latestDF
         .write
         .mode(SaveMode.Overwrite)
         .parquet(currentPath)
 
+      writeProcessLog(sqlContext, tableName, processId, processType, userId, now, now)
+
       if (writeChangeTables) {
         val daysAgo = 3
-        writeChangeTable(fs, inserts, header, s"$BASE_URI/$LAYER_IL/$tableName/$FILE_NEW", daysAgo)
-        writeChangeTable(fs, updatesNew, header, s"$BASE_URI/$LAYER_IL/$tableName/$FILE_CHANGED", daysAgo)
+        writeChangeTable(fs, inserts, header, s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_NEW", daysAgo)
+        writeChangeTable(fs, updatesNew, header, s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_CHANGED", daysAgo)
 
         updatesNew.unpersist()
         inserts.unpersist()
 
         if (deletes.isDefined) {
-          writeChangeTable(fs, deletes.get, header, s"$BASE_URI/$LAYER_IL/$tableName/$FILE_REMOVED", daysAgo)
+          writeChangeTable(fs, deletes.get, header, s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_REMOVED", daysAgo)
           deletes.get.unpersist()
         }
       }
@@ -276,9 +278,32 @@ class ParquetDataLoader extends DataLoader {
 
       writer.parquet(s"$BASE_URI$tablePath")
       writer.parquet(currentPath)
+      writeProcessLog(sqlContext, tableName, processId, processType, userId, now, now)
+
+      if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
+
+      }
 
       out.unpersist()
     }
+  }
+
+  def writeProcessLog(sqlContext: SQLContext,
+                      tableName: String,
+                      processId: String,
+                      processType: String,
+                      userId: String,
+                      processTime: DateTime,
+                      processDate: DateTime) {
+
+    val procRow = Row(processId, processType, userId, processTime, processDate)
+    val procRDD = sqlContext.sparkContext.parallelize(Seq(procRow))
+    val procDF = sqlContext.createDataFrame(procRDD, procSchema)
+    procDF.write
+      .format("com.databricks.spark.csv")
+      .option("header", "true")
+      .mode(SaveMode.Append)
+      .save(s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_PROCESS")
   }
 
   def loadLink(df: DataFrame,
@@ -298,8 +323,8 @@ class ParquetDataLoader extends DataLoader {
     if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
     val tn = if (tableName.isDefined) tableName.get else s"${entityType1.toLowerCase}_${entityType2.toLowerCase}_link"
-    val path = s"/$LAYER_IL/$tn$FILE_EXT"
-    val currentPath = s"$BASE_URI/$LAYER_IL/$tn/$FILE_CURRENT"
+    val path = s"/$LAYER_ACQUISITION/$tn/$FILE_HISTORY"
+    val currentPath = s"$BASE_URI/$LAYER_ACQUISITION/$tn/$FILE_CURRENT"
     val sqlContext = df.sqlContext
     sqlContext.udf.register("hashKey", hashKey(_: String))
     sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
@@ -315,14 +340,14 @@ class ParquetDataLoader extends DataLoader {
           s"convertStringToTimestamp(i.${validEndTimeField.get._1}, '${validEndTimeField.get._2}'"
           )
       } else {
-        (NULL_TYPE, NULL_TYPE, "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
+        (NA_EXPR, NA_EXPR, "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
       }
 
     val deleteIndicatorFieldName =
       if (deleteIndicatorField.isDefined) {
         s"'${deleteIndicatorField.get._1}'"
       } else {
-        NULL_TYPE
+        NA_EXPR
       }
 
     val sql =
@@ -441,17 +466,17 @@ class ParquetDataLoader extends DataLoader {
         }
 
       all.write
-        .partitionBy("entity_type_1", "entity_type_2")
+        //.partitionBy("entity_type_1", "entity_type_2")
         .mode(saveMode)
         .parquet(s"$BASE_URI$path")
 
       // write snapshot
-      val latest: RDD[Row] = all
-        .map(row => (row.getAs[String](META_ENTITY_ID), row))
+      val latest: RDD[Row] = df
+        .map(row => ((row.getAs[String]("entity_id_1"), row.getAs[String]("entity_id_2")), row))
         .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
         .map(_._2)
 
-      val latestDF = sqlContext.createDataFrame(latest, all.schema)
+      val latestDF = df.sqlContext.createDataFrame(latest, df.schema)
 
       latestDF
         .write
@@ -459,13 +484,43 @@ class ParquetDataLoader extends DataLoader {
         .parquet(currentPath)
 
     } else {
-      val links = sqlContext.sql(sql)
+      val links = sqlContext.sql(sql).cache()
 
-      links.write
-        .partitionBy("entity_type_1", "entity_type_2")
+      val writer = links.write
+        //.partitionBy("entity_type_1", "entity_type_2")
         .mode(saveMode)
-        .parquet(s"$BASE_URI$path")
+
+      writer.parquet(s"$BASE_URI$path")
+      writer.parquet(currentPath)
+
+      links.unpersist()
     }
+  }
+
+  def registerCustomers(df: DataFrame,
+                        isDelta: Boolean,
+                        idField: String, idType: String,
+                        source: String,
+                        processType: String,
+                        processId: String,
+                        userId: String) {
+
+    loadHub(df, isDelta, "customer", List(idField), idType, source, processType, processId, userId, newNames = Map(
+      idField -> "customer_id"
+    ))
+  }
+
+  def registerServices(df: DataFrame,
+                       isDelta: Boolean,
+                       idField: String, idType: String,
+                       source: String,
+                       processType: String,
+                       processId: String,
+                       userId: String) {
+
+    loadHub(df, isDelta, "service", List(idField), idType, source, processType, processId, userId, newNames = Map(
+      idField -> "service_id"
+    ))
   }
 
   def loadHub(df: DataFrame,
@@ -485,8 +540,8 @@ class ParquetDataLoader extends DataLoader {
     if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
     val tn = if (tableName.isDefined) tableName.get else s"${entityType.toLowerCase}_hub"
-    val path = s"/$LAYER_IL/$tn$FILE_EXT"
-    val currentPath = s"$BASE_URI/$LAYER_IL/$tn/$FILE_CURRENT"
+    val path = s"/$LAYER_ACQUISITION/$tn/$FILE_HISTORY"
+    val currentPath = s"$BASE_URI/$LAYER_ACQUISITION/$tn/$FILE_CURRENT"
     val sqlContext = df.sqlContext
     sqlContext.udf.register("hashKey", hashKey(_: String))
     sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
@@ -501,14 +556,14 @@ class ParquetDataLoader extends DataLoader {
           s"convertStringToTimestamp(i.${validEndTimeField.get._1}, '${validEndTimeField.get._2}'"
           )
       } else {
-        (NULL_TYPE, NULL_TYPE, "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
+        (NA_EXPR, NA_EXPR, "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
       }
 
     val deleteIndicatorFieldName =
       if (deleteIndicatorField.isDefined) {
         s"'${deleteIndicatorField.get._1}'"
       } else {
-        NULL_TYPE
+        NA_EXPR
       }
 
     val sql =
@@ -634,12 +689,7 @@ class ParquetDataLoader extends DataLoader {
         .parquet(s"$BASE_URI$path")
 
       // write snapshot
-      val latest: RDD[Row] = renamed
-        .map(row => (row.getAs[String](META_ENTITY_ID), row))
-        .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
-        .map(_._2)
-
-      val latestDF = sqlContext.createDataFrame(latest, renamed.schema)
+      val latestDF = snapshot(renamed)
 
       latestDF
         .write
@@ -651,11 +701,16 @@ class ParquetDataLoader extends DataLoader {
       val renamed = newNames.foldLeft(entities)({
         case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
       })
+      renamed.cache()
 
-      renamed.write
+      val writer = renamed.write
         .partitionBy("id_type")
         .mode(saveMode)
-        .parquet(s"$BASE_URI$path")
+
+      writer.parquet(s"$BASE_URI$path")
+      writer.parquet(currentPath)
+
+      renamed.unpersist()
     }
   }
 
@@ -678,8 +733,8 @@ class ParquetDataLoader extends DataLoader {
     if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
     val tn = if (tableName.isDefined) tableName.get else s"${entityType.toLowerCase}_mapping"
-    val path = s"/$LAYER_IL/$tn$FILE_EXT"
-    val currentPath = s"$BASE_URI/$LAYER_IL/$tn/$FILE_CURRENT"
+    val path = s"/$LAYER_ACQUISITION/$tn/$FILE_HISTORY"
+    val currentPath = s"$BASE_URI/$LAYER_ACQUISITION/$tn/$FILE_CURRENT"
     val sqlContext = df.sqlContext
     sqlContext.udf.register("hashKey", hashKey(_: String))
     sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
@@ -695,14 +750,14 @@ class ParquetDataLoader extends DataLoader {
           s"convertStringToTimestamp(i.${validEndTimeField.get._1}, '${validEndTimeField.get._2}'"
           )
       } else {
-        (NULL_TYPE, NULL_TYPE, "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
+        (NA_EXPR, NA_EXPR, "current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
       }
 
     val deleteIndicatorFieldName =
       if (deleteIndicatorField.isDefined) {
         s"'${deleteIndicatorField.get._1}'"
       } else {
-        NULL_TYPE
+        NA_EXPR
       }
 
     val sql =
@@ -825,17 +880,12 @@ class ParquetDataLoader extends DataLoader {
         }
 
       all.write
-        .partitionBy("id_type_1", "id_type_2")
+//        .partitionBy("id_type_1", "id_type_2")
         .mode(saveMode)
         .parquet(s"$BASE_URI$path")
 
       // write snapshot
-      val latest: RDD[Row] = all
-        .map(row => (row.getAs[String](META_ENTITY_ID), row))
-        .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
-        .map(_._2)
-
-      val latestDF = sqlContext.createDataFrame(latest, all.schema)
+      val latestDF = snapshot(all)
 
       latestDF
         .write
@@ -843,51 +893,139 @@ class ParquetDataLoader extends DataLoader {
         .parquet(currentPath)
 
     } else {
-      val links = sqlContext.sql(sql)
+      val mapping = sqlContext.sql(sql).cache()
 
-      links.write
-        .partitionBy("id_type_1", "id_type_2")
+      val writer = mapping.write
+//        .partitionBy("id_type_1", "id_type_2")
         .mode(saveMode)
-        .parquet(s"$BASE_URI$path")
+
+      writer.parquet(s"$BASE_URI$path")
+      writer.parquet(currentPath)
+
+      mapping.unpersist()
     }
+  }
+
+  /**
+    * For tables with a single 'entity_id' only. Not for link or mapping tables!
+    *
+    * @param df DataFrame
+    * @return
+    */
+  def snapshot(df: DataFrame) = {
+    val latest: RDD[Row] = df
+      .map(row => (row.getAs[String](META_ENTITY_ID), row))
+      .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
+      .map(_._2)
+
+    df.sqlContext.createDataFrame(latest, df.schema)
   }
 
   def readCurrentMapping(sqlContext: SQLContext, entityType: String, tableName: Option[String] = None) = {
     val tn = if (tableName.isDefined) tableName.get else s"${entityType.toLowerCase}_mapping"
-    sqlContext.read.load(s"$BASE_URI/$LAYER_IL/$tn$FILE_EXT")
+    val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
+    val currentPath = s"$BASE_URI/$LAYER_ACQUISITION/$tn/$FILE_CURRENT"
+    if (fs.exists(new Path(currentPath))) {
+      sqlContext.read.load(currentPath)
+    } else {
+      readMapping(sqlContext, entityType, tableName)
+    }
   }
 
-  def vertices(df: DataFrame): RDD[(VertexId, String)] = {
+  def readMapping(sqlContext: SQLContext, entityType: String, tableName: Option[String] = None) = {
+    val tn = if (tableName.isDefined) tableName.get else s"${entityType.toLowerCase}_mapping"
+    val df = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/$tn$FILE_EXT")
+    val latest: RDD[Row] = df
+      .map(row => ((row.getAs[String]("entity_id_1"), row.getAs[String]("entity_id_2")), row))
+      .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
+      .map(_._2)
+
+    df.sqlContext.createDataFrame(latest, df.schema)
+  }
+
+  /**
+    *
+    * @param df DataFrame mapping
+    * @return RDD[(VertexId, (entity_id, id_type)]
+    */
+  def vertices(df: DataFrame): RDD[(VertexId, (String, String))] = {
     import df.sqlContext.implicits._
 
-    df.select($"entity_id_1", $"entity_id_2")
-      .flatMap(x => Iterable(x(0).toString, x(1).toString))
+    df.select($"entity_id_1", $"entity_id_2", $"id_type_1", $"id_type_2")
+      .flatMap(x => Iterable((x(0).toString, x(2).toString), (x(1).toString, x(3).toString)))
       .distinct()
-      .map(x => (vertexId(x), x))
+      .map(x => (vertexId(x._1), x))
   }
 
   def edges(df: DataFrame): RDD[Edge[Double]] = {
     import df.sqlContext.implicits._
 
     df.select($"entity_id_1", $"entity_id_2", $"confidence")
-      .map(x => ((vertexId(x(0)), vertexId(x(1))), x(2).asInstanceOf[Double]))
-      .reduceByKey(_+_)
-      .map(x => Edge(x._1._1, x._1._2, x._2))
+      .map(x => Edge(vertexId(x(0).toString), vertexId(x(1).toString), x(2).asInstanceOf[Double]))
   }
 
-  def graph(vs: RDD[(VertexId, String)], es: RDD[Edge[Double]]) = {
-    val defaultEntity = "Missing"
+  def makeGraph(vs: RDD[(VertexId, (String, String))], es: RDD[Edge[Double]]): Graph[(String, String), Double] = {
+    val defaultEntity = ("Missing", "Missing")
     Graph(vs, es, defaultEntity)
   }
 
-  def customerGraph(sqlContext: SQLContext) = {
-    val df = readCurrentMapping(sqlContext, "customer")
-    graph(vertices(df), edges(df))
+  def mapEntities(df: DataFrame,
+                  entityType: String,
+                  targetIdType: String,
+                  confidenceThreshold: Double = 1.0,
+                  mappingTable: Option[String] = None) = {
+
+    val sqlContext = df.sqlContext
+    val sc = sqlContext.sparkContext
+    val mapping = readCurrentMapping(df.sqlContext, entityType, mappingTable)
+    val graph = makeGraph(vertices(mapping), edges(mapping))
+    graph.cache()
+
+    //val bGraph = sc.broadcast(graph)
+    //val findTargetIdUDF = udf(findTargetId(bGraph, _: String, targetIdType, confidenceThreshold))
+    //df.withColumn(targetIdType, findTargetIdUDF($"entity_id"))
+
+    // collecting as not working in parallel
+    val mapped = df.collect().map(row =>
+      Row.fromSeq(findTargetId(graph, row.getAs[String]("entity_id"), targetIdType, confidenceThreshold) +: row.toSeq)
+    )
+
+    val newSchema = StructType(StructField(targetIdType, StringType) +: df.schema)
+    sqlContext.createDataFrame(sc.parallelize(mapped), newSchema)
+  }
+
+  // TODO
+  // not sure if a graph lookup approach will work
+  def findTargetId(graph: Graph[(String, String), Double],
+                   srcEntityId: String,
+                   targetIdType: String,
+                   confidenceThreshold: Double = 1.0): String = {
+
+    if (graph.vertices == null) throw sys.error("Empty Graph!!")
+
+    // following is wrong
+    val result = graph.pregel("Missing", maxIterations = 20, activeDirection = EdgeDirection.Either)(
+      // (VertexId, VD, A) => VD
+      (id, dist, newDist) => dist,
+
+      // triplet:
+      // ((srcId, srcAttr), (dstId, dstAttr), attr)
+      // ((srcVertexId, (srcEntityId, srcIdType)), (dstVertexId, (dstEntityId, dstIdType)), confidence)
+      triplet => {
+        if (triplet.dstAttr._2 == targetIdType && triplet.attr >= confidenceThreshold) {
+          Iterator.empty
+        } else {
+          Iterator((triplet.dstId, triplet.dstAttr._1))
+        }
+      },
+
+      // (A, A) => A
+      (a, b) => b
+    )
+    result.vertices.take(1)(0)._2._1
   }
 
   def vertexId(str: String): VertexId = MurmurHash3.stringHash(str)
-
-  def vertexId(x: Any): VertexId = vertexId(x.toString)
 
   def writeChangeTable(fs: FileSystem, df: DataFrame, header: List[String], fileName: String, daysAgo: Int) {
     // remove partitions > daysAgo old

@@ -1,7 +1,7 @@
 package diamond.load
 
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.types._
 
 /**
   * A Data Vault 2.0 like process is being employed. There are three types of tables:
@@ -67,6 +67,14 @@ trait DataLoader extends Serializable {
     StructField("process_time", StringType) :: Nil
   )
 
+  val procSchema = StructType(
+    StructField(META_PROCESS_ID, StringType) ::
+    StructField(META_PROCESS_TYPE, StringType) ::
+    StructField(META_USER_ID, StringType) ::
+    StructField("process_time", TimestampType) ::
+    StructField(META_PROCESS_DATE, DateType) :: Nil
+  )
+
   /**
     *
     * @param df DataFrame the DataFrame of the file/table to load into the Satellite table
@@ -128,6 +136,22 @@ trait DataLoader extends Serializable {
                validEndTimeField: Option[(String, String)] = None,
                deleteIndicatorField: Option[(String, Any)] = None,
                overwrite: Boolean = false)
+
+  def registerCustomers(df: DataFrame,
+                        isDelta: Boolean,
+                        idField: String, idType: String,
+                        source: String,
+                        processType: String,
+                        processId: String,
+                        userId: String)
+
+  def registerServices(df: DataFrame,
+                       isDelta: Boolean,
+                       idField: String, idType: String,
+                       source: String,
+                       processType: String,
+                       processId: String,
+                       userId: String)
 
   def loadHub(df: DataFrame,
               isDelta: Boolean,

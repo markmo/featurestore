@@ -6,17 +6,23 @@ import diamond.load.HiveDataLoader
 class LoadSatelliteHiveSpec extends UnitSpec {
 
   val BASE_URI = "hdfs://localhost:9000"
+  val LAYER_RAW = "base"
+  val LAYER_ACQUISITION = "acquisition"
 
   val hiveLoader = new HiveDataLoader
 
   "Customers" should "load customers into a satellite table using Hive" in {
-    val demo = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics.parquet")
+    val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
 
     hiveLoader.loadSatellite(demo,
       isDelta = false,
       tableName = "customer_demo",
-      idField = "cust_id",
+      idFields = List("cust_id"),
       idType = "id1",
+      source = "test",
+      processType = "test",
+      processId = "test",
+      userId = "test",
       partitionKeys = None,
       newNames = Map(
         "age25to29" -> "age_25_29",
@@ -34,13 +40,17 @@ class LoadSatelliteHiveSpec extends UnitSpec {
   }
 
   it should "load deltas into a satellite table using Hive" in {
-    val delta = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics_Delta.parquet")
+    val delta = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta.parquet")
 
     hiveLoader.loadSatellite(delta,
       isDelta = true,
       tableName = "customer_demo",
-      idField = "cust_id",
+      idFields = List("cust_id"),
       idType = "id1",
+      source = "test",
+      processType = "test",
+      processId = "test",
+      userId = "test",
       partitionKeys = None,
       newNames = Map(
         "age25to29" -> "age_25_29",
@@ -58,13 +68,17 @@ class LoadSatelliteHiveSpec extends UnitSpec {
   }
 
   it should "perform change data capture using Hive" in {
-    val updates = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics_Delta_Updates.parquet")
+    val updates = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta_Updates.parquet")
 
     hiveLoader.loadSatellite(updates,
       isDelta = true,
       tableName = "customer_demo",
-      idField = "cust_id",
+      idFields = List("cust_id"),
       idType = "id1",
+      source = "test",
+      processType = "test",
+      processId = "test",
+      userId = "test",
       partitionKeys = None,
       newNames = Map(
         "age25to29" -> "age_25_29",

@@ -14,7 +14,6 @@
         <parameter value="-Xfatal-warnings" />
         <parameter value="-Xlint" />
         <parameter value="-Yno-adapted-args" />
-        <parameter value="-Ywarn-dead-code" />
         <parameter value="-Ywarn-numeric-widen" />
         <parameter value="-Xfuture" />
       </parameters>

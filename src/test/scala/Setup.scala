@@ -12,11 +12,11 @@ object Setup extends App {
   val sc = new SparkContext(conf)
   val sqlContext = new SQLContext(sc)
 
-  val delta = sqlContext.read
+  val delta = (sqlContext.read
     .format("com.databricks.spark.csv")
     .option("header", "true")
     .option("inferSchema", "true")
-    .load("hdfs://localhost:9000/base/Customer_Demographics_Delta.csv")
+    .load("hdfs://localhost:9000/base/Customer_Demographics_Delta.csv"))
 
   val deltaNames = delta.schema.fieldNames.toList
 
@@ -28,11 +28,11 @@ object Setup extends App {
 
   deltaFormatted.write.parquet("hdfs://localhost:9000/base/Customer_Demographics_Delta.parquet")
 
-  val updates = sqlContext.read
+  val updates = (sqlContext.read
     .format("com.databricks.spark.csv")
     .option("header", "true")
     .option("inferSchema", "true")
-    .load("hdfs://localhost:9000/base/Customer_Demographics_Delta_Updates.csv")
+    .load("hdfs://localhost:9000/base/Customer_Demographics_Delta_Updates.csv"))
 
   val updatesNames = updates.schema.fieldNames.toList
 
@@ -43,5 +43,21 @@ object Setup extends App {
   println(updatesFormatted.printSchema())
 
   updatesFormatted.write.parquet("hdfs://localhost:9000/base/Customer_Demographics_Delta_Updates.parquet")
+
+  val emailMappings = (sqlContext.read
+    .format("com.databricks.spark.csv")
+    .option("header", "true")
+    .option("inferSchema", "true")
+    .load("hdfs://localhost:9000/base/email_mappings.csv"))
+
+  emailMappings.write.parquet("hdfs://localhost:9000/base/email_mappings.parquet")
+
+  val fnnMappings = (sqlContext.read
+    .format("com.databricks.spark.csv")
+    .option("header", "true")
+    .option("inferSchema", "true")
+    .load("hdfs://localhost:9000/base/fnn_mappings.csv"))
+
+  fnnMappings.write.parquet("hdfs://localhost:9000/base/fnn_mappings.parquet")
 
 }
