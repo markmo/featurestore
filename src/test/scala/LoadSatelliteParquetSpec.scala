@@ -1,6 +1,6 @@
 import java.net.URI
 
-import diamond.load.ParquetDataLoader
+import diamond.ComponentRegistry
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -9,11 +9,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
   */
 class LoadSatelliteParquetSpec extends UnitSpec {
 
-  val BASE_URI = "hdfs://localhost:9000"
-  val LAYER_RAW = "base"
-  val LAYER_ACQUISITION = "acquisition"
-
-  val parquetLoader = new ParquetDataLoader
+  val parquetLoader = ComponentRegistry.dataLoader
 
   "ParquetDataLoader" should "load customers into a satellite table using Parquet" in {
     val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
@@ -97,7 +93,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     val cust20010 = joined.where("customer_id = '20010'")
 
     cust20010.count() should be (2)
-    cust20010.where("rectype = 'U'").count() should be (1)
+    cust20010.where("rectype = 'U'").count() should be(1)
 
     val current = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_demo/current.parquet")
 

@@ -1,4 +1,4 @@
-import diamond.load.ParquetDataLoader
+import diamond.ComponentRegistry
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 
@@ -7,11 +7,12 @@ import org.apache.spark.sql.types.IntegerType
   */
 class CustomerMappingSpec extends UnitSpec {
 
-  val parquetLoader = new ParquetDataLoader
+  val parquetLoader = ComponentRegistry.dataLoader
+  val customerResolver = ComponentRegistry.customerResolver
 
   "ParquetDataLoader" should "load customer mappings using Parquet" in {
 
-    val emailMappings = sqlContext.read.load("hdfs://localhost:9000/base/email_mappings.parquet")
+    val emailMappings = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/email_mappings.parquet")
 
     parquetLoader.loadMapping(emailMappings,
       isDelta = false,
@@ -25,7 +26,7 @@ class CustomerMappingSpec extends UnitSpec {
       userId = "test")
 
     /*
-    val demo = sqlContext.read.load("hdfs://localhost:9000/base/Customer_Demographics.parquet")
+    val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
     parquetLoader.loadSatellite(demo,
       isDelta = false,
       tableName = "customer_demo",
@@ -37,13 +38,13 @@ class CustomerMappingSpec extends UnitSpec {
       userId = "test"
     )*/
 
-    val hub = sqlContext.read.load("hdfs://localhost:9000/il/customer_hub.parquet")
-    val customers = sqlContext.read.load("hdfs://localhost:9000/il/customer_demo/current.parquet")
+    val hub = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub.parquet")
+    val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_demo/current.parquet")
     val names = customers.schema.fieldNames.toList
     val joined = customers.join(hub, "entity_id").select(hub("customer_id") :: names.map(customers(_)): _*)
     val sample = joined.filter(col("customer_id").cast(IntegerType) > lit(20000))
 
-    val mapped = parquetLoader.mapEntities(sample, entityType = "customer", targetIdType = "email")
+    val mapped = customerResolver.mapEntities(sample, entityType = "customer", targetIdType = "email")
 
     mapped.sort(desc("customer_id")).select("customer_id", "email").take(10).foreach(println)
 

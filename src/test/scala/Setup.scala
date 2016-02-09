@@ -8,6 +8,10 @@ import org.apache.spark.sql.types.{LongType, StringType}
   */
 object Setup extends App {
 
+  val BASE_URI = "hdfs://localhost:9000"
+  val LAYER_RAW = "base"
+  val LAYER_ACQUISITION = "acquisition"
+
   val conf = new SparkConf().setAppName("sparktemplate").setMaster("local[4]")
   val sc = new SparkContext(conf)
   val sqlContext = new SQLContext(sc)
@@ -16,7 +20,7 @@ object Setup extends App {
     .format("com.databricks.spark.csv")
     .option("header", "true")
     .option("inferSchema", "true")
-    .load("hdfs://localhost:9000/base/Customer_Demographics_Delta.csv"))
+    .load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta.csv"))
 
   val deltaNames = delta.schema.fieldNames.toList
 
@@ -26,13 +30,13 @@ object Setup extends App {
   println("###1")
   println(deltaFormatted.printSchema())
 
-  deltaFormatted.write.parquet("hdfs://localhost:9000/base/Customer_Demographics_Delta.parquet")
+  deltaFormatted.write.parquet(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta.parquet")
 
   val updates = (sqlContext.read
     .format("com.databricks.spark.csv")
     .option("header", "true")
     .option("inferSchema", "true")
-    .load("hdfs://localhost:9000/base/Customer_Demographics_Delta_Updates.csv"))
+    .load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta_Updates.csv"))
 
   val updatesNames = updates.schema.fieldNames.toList
 
@@ -42,22 +46,22 @@ object Setup extends App {
   println("###2")
   println(updatesFormatted.printSchema())
 
-  updatesFormatted.write.parquet("hdfs://localhost:9000/base/Customer_Demographics_Delta_Updates.parquet")
+  updatesFormatted.write.parquet(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta_Updates.parquet")
 
   val emailMappings = (sqlContext.read
     .format("com.databricks.spark.csv")
     .option("header", "true")
     .option("inferSchema", "true")
-    .load("hdfs://localhost:9000/base/email_mappings.csv"))
+    .load(s"$BASE_URI/$LAYER_RAW/email_mappings.csv"))
 
-  emailMappings.write.parquet("hdfs://localhost:9000/base/email_mappings.parquet")
+  emailMappings.write.parquet(s"$BASE_URI/$LAYER_RAW/email_mappings.parquet")
 
   val fnnMappings = (sqlContext.read
     .format("com.databricks.spark.csv")
     .option("header", "true")
     .option("inferSchema", "true")
-    .load("hdfs://localhost:9000/base/fnn_mappings.csv"))
+    .load(s"$BASE_URI/$LAYER_RAW/fnn_mappings.csv"))
 
-  fnnMappings.write.parquet("hdfs://localhost:9000/base/fnn_mappings.parquet")
+  fnnMappings.write.parquet(s"$BASE_URI/$LAYER_RAW/fnn_mappings.parquet")
 
 }

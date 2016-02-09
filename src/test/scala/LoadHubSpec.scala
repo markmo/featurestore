@@ -1,6 +1,6 @@
 import java.net.URI
 
-import diamond.load.{HiveDataLoader, ParquetDataLoader}
+import diamond.ComponentRegistry
 import diamond.utility.functions._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -11,12 +11,8 @@ import org.apache.spark.sql.functions._
   */
 class LoadHubSpec extends UnitSpec {
 
-  val BASE_URI = "hdfs://localhost:9000"
-  val LAYER_RAW = "base"
-  val LAYER_ACQUISITION = "acquisition"
-
-  val parquetLoader = new ParquetDataLoader
-  val hiveLoader = new HiveDataLoader
+  val parquetLoader = ComponentRegistry.dataLoader
+  val hiveLoader = HiveComponentRegistry.dataLoader
 
   "Customers" should "be registered into the customer_hub table using Parquet" in {
     val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
@@ -132,11 +128,10 @@ class LoadHubSpec extends UnitSpec {
     customers.count() should be (20010)
   }
 
-  /*
   override def afterAll() {
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
     fs.delete(new Path(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub.parquet"), true)
     super.afterAll()
-  }*/
+  }
 
 }

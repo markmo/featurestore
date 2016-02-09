@@ -5,4 +5,8 @@ import org.scalatest.{FlatSpec, Matchers}
   */
 abstract class UnitSpec extends FlatSpec with SharedSparkContext with Matchers {
 
+  val BASE_URI = "hdfs://localhost:9000"
+  val LAYER_RAW = "base"
+  val LAYER_ACQUISITION = "acquisition"
+
 }

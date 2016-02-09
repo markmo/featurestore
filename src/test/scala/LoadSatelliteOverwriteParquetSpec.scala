@@ -1,20 +1,16 @@
 import java.net.URI
 import java.util.Date
 
-import diamond.load.ParquetDataLoader
+import diamond.ComponentRegistry
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{Path, FileSystem}
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 /**
   * Created by markmo on 1/02/2016.
   */
 class LoadSatelliteOverwriteParquetSpec extends UnitSpec {
 
-  val BASE_URI = "hdfs://localhost:9000"
-  val LAYER_RAW = "base"
-  val LAYER_ACQUISITION = "acquisition"
-
-  val parquetLoader = new ParquetDataLoader
+  val parquetLoader = ComponentRegistry.dataLoader
 
   "ParquetDataLoader" should "load customers into a satellite table using Parquet" in {
     val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")

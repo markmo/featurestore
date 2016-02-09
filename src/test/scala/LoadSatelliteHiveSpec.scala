@@ -1,15 +1,11 @@
-import diamond.load.HiveDataLoader
+
 
 /**
   * Created by markmo on 23/01/2016.
   */
 class LoadSatelliteHiveSpec extends UnitSpec {
 
-  val BASE_URI = "hdfs://localhost:9000"
-  val LAYER_RAW = "base"
-  val LAYER_ACQUISITION = "acquisition"
-
-  val hiveLoader = new HiveDataLoader
+  val hiveLoader = HiveComponentRegistry.dataLoader
 
   "Customers" should "load customers into a satellite table using Hive" in {
     val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
