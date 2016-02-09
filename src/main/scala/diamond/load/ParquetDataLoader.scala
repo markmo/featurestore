@@ -1,6 +1,7 @@
 package diamond.load
 
 import java.net.URI
+import java.nio.charset.Charset
 
 import com.github.nscala_time.time.Imports._
 import diamond.utility.functions._
@@ -14,6 +15,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
 
 import scala.util.hashing.MurmurHash3
+import scala.util.parsing.json.JSONObject
 
 /**
   * Parquet writes columns out of order (compared to the schema)
@@ -31,11 +33,15 @@ class ParquetDataLoader extends DataLoader {
   val FILE_CURRENT = s"current$FILE_EXT"
   val FILE_HISTORY = s"history$FILE_EXT"
   val FILE_PROCESS = "process.csv"
+  val FILE_META = "meta.json"
   val FILE_PREV = s"prev$FILE_EXT"
 
   val LAYER_ACQUISITION = "acquisition"
 
   val NA_EXPR = "'NA'"
+
+  // TODO
+  // duplicates check
 
   def loadSatellite(df: DataFrame,
                     isDelta: Boolean,
@@ -242,7 +248,8 @@ class ParquetDataLoader extends DataLoader {
         .mode(SaveMode.Overwrite)
         .parquet(currentPath)
 
-      writeProcessLog(sqlContext, tableName, processId, processType, userId, now, now)
+      val deletesCount = if (deletes.isDefined) deletes.get.count() else 0
+      writeProcessLog(sqlContext, tableName, processId, processType, userId, df.count(), inserts.count(), updatesNew.count(), deletesCount, now, now)
 
       if (writeChangeTables) {
         val daysAgo = 3
@@ -278,11 +285,21 @@ class ParquetDataLoader extends DataLoader {
 
       writer.parquet(s"$BASE_URI$tablePath")
       writer.parquet(currentPath)
-      writeProcessLog(sqlContext, tableName, processId, processType, userId, now, now)
+      val readCount = df.count()
+      writeProcessLog(sqlContext, tableName, processId, processType, userId, readCount, readCount, 0, 0, now, now)
 
-      if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
-
-      }
+      val meta = Map(
+        "idFields" -> idFields,
+        "idType" -> idType,
+        "partitionKeys" -> partitionKeys,
+        "newNames" -> newNames,
+        "validStartTimeField" -> validStartTimeField,
+        "validEndTimeField" -> validEndTimeField,
+        "deleteIndicatorField" -> deleteIndicatorField
+      )
+      val metaJson = JSONObject(meta)
+      val os = fs.create(new Path(s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_META"))
+      os.write(metaJson.toString.getBytes(Charset.defaultCharset))
 
       out.unpersist()
     }
@@ -293,10 +310,14 @@ class ParquetDataLoader extends DataLoader {
                       processId: String,
                       processType: String,
                       userId: String,
+                      readCount: Long,
+                      insertsCount: Long,
+                      updatesCount: Long,
+                      deletesCount: Long,
                       processTime: DateTime,
                       processDate: DateTime) {
 
-    val procRow = Row(processId, processType, userId, processTime, processDate)
+    val procRow = Row(processId, processType, userId, readCount, insertsCount, updatesCount, deletesCount, processTime, processDate)
     val procRDD = sqlContext.sparkContext.parallelize(Seq(procRow))
     val procDF = sqlContext.createDataFrame(procRDD, procSchema)
     procDF.write

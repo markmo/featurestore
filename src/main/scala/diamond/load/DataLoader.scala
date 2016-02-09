@@ -71,6 +71,10 @@ trait DataLoader extends Serializable {
     StructField(META_PROCESS_ID, StringType) ::
     StructField(META_PROCESS_TYPE, StringType) ::
     StructField(META_USER_ID, StringType) ::
+    StructField("read_count", IntegerType) ::
+    StructField("inserts_count", IntegerType) ::
+    StructField("updates_count", IntegerType) ::
+    StructField("deletes_count", IntegerType) ::
     StructField("process_time", TimestampType) ::
     StructField(META_PROCESS_DATE, DateType) :: Nil
   )
