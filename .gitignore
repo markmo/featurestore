@@ -195,3 +195,5 @@ id_rsa.*
 
 libX/
 metastore_db/
+
+derby.log

@@ -76,6 +76,7 @@ trait DataLoaderComponent {
       StructField(META_PROCESS_TYPE, StringType) ::
       StructField(META_USER_ID, StringType) ::
       StructField("read_count", IntegerType) ::
+      StructField("duplicates_count", IntegerType) ::
       StructField("inserts_count", IntegerType) ::
       StructField("updates_count", IntegerType) ::
       StructField("deletes_count", IntegerType) ::
@@ -94,6 +95,8 @@ trait DataLoaderComponent {
       * @param processType String type of process, e.g. "Load Delta", "Load History Full"
       * @param processId String unique process id
       * @param userId String user or system account of process
+      * @param projection Option[List[String]] optional list of fields to load from the source
+      *                   table
       * @param validStartTimeField Option[(String, Any)] a tuple with the first value the
       *                            name of the field that contains the valid (business) start
       *                            time and the second value the time format
@@ -123,6 +126,7 @@ trait DataLoaderComponent {
                       processType: String,
                       processId: String,
                       userId: String,
+                      projection: Option[List[String]] = None,
                       validStartTimeField: Option[(String, String)] = None,
                       validEndTimeField: Option[(String, String)] = None,
                       deleteIndicatorField: Option[(String, Any)] = None,

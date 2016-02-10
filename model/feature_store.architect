@@ -73,16 +73,16 @@
    <remarks></remarks>
    <folder id="FOLTAB211" populated="true" name="Columns" physicalName="Columns" type="1">
     <column id="COL22" populated="true" UUID="2ed6cb36-9bf3-411e-ad21-bab08437809b" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_entity_id_seq" defaultValue="" name="entity_id" nullable="0" physicalName="entity_id" precision="0" primaryKeySeq="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The hashed customer key using SHA-256.</remarks>
     </column>
     <column id="COL23" populated="true" UUID="e9d52328-f98d-4c03-af2f-1014dbe3e2f1" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_entity_type_seq" defaultValue="" name="entity_type" nullable="0" physicalName="entity_type" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The type of entity, e.g. &quot;customer&quot;, &quot;service&quot;.</remarks>
     </column>
     <column id="COL24" populated="true" UUID="12f7d2ea-77b0-4a26-8a2f-deff18f458ec" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_id_type_seq" defaultValue="" name="id_type" nullable="0" physicalName="id_type" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The type of customer key, e.g. &quot;Siebel Customer Number&quot;, &quot;FNN&quot;, &quot;email&quot;.</remarks>
     </column>
     <column id="COL25" populated="true" UUID="1db272d5-151f-4832-8519-b3691a7ccfc5" autoIncrement="false" autoIncrementSequenceName="customer_hub_customer_id_seq" defaultValue="" name="&lt;customer_id/s&gt;" nullable="0" physicalName="&lt;customer_id/s&gt;" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The customer key or composite key.</remarks>
     </column>
     <column id="COL26" populated="true" UUID="53622951-ccce-4e86-83ca-81626a401859" autoIncrement="false" autoIncrementSequenceName="customer_hub_process_ts_seq" defaultValue="" name="valid_start_time" nullable="0" physicalName="valid_start_time" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="93" userDefinedTypeUUID="6497d8de-0e00-40d6-a42e-e2adca83be64" >
      <remarks>Valid time is the time period during which a fact is true with respect to the real world.</remarks>
@@ -97,25 +97,36 @@
      <remarks>Transaction time is the time period during which a fact stored in the database is considered to be true.</remarks>
     </column>
     <column id="COL30" populated="true" UUID="d3345db5-2033-43cf-a182-014fbcb82a28" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_source_seq" defaultValue="" name="source" nullable="0" physicalName="source" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The source system or database table, e.g. &quot;Blackhawk&quot;, Siebel Copy&quot;.</remarks>
     </column>
     <column id="COL31" populated="true" UUID="144a9b3d-9305-4e7b-b819-9e8cfae07331" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_process_type_seq" defaultValue="" name="process_type" nullable="0" physicalName="process_type" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The type of load process, e.g.
+* Load Full
+* Load Delta
+* Reload Full
+* Reload Delta
+* Direct Load Full
+* Direct Load Delta
+* History Load Full
+* History Load Delta</remarks>
     </column>
     <column id="COL32" populated="true" UUID="54f51b32-ebd5-4382-ab02-5e4f65144ab9" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_process_id_seq" defaultValue="" name="process_id" nullable="0" physicalName="process_id" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>Unique job id.</remarks>
     </column>
     <column id="COL33" populated="true" UUID="155a62db-c760-4874-9824-29dffaab98d7" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_process_date_seq" defaultValue="" name="process_date" nullable="0" physicalName="process_date" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="91" userDefinedTypeUUID="ee349be3-6af2-46e1-b305-975f5354b009" >
-     <remarks></remarks>
+     <remarks>The date on which the process ran.</remarks>
     </column>
     <column id="COL34" populated="true" UUID="b0e04172-5fe7-41da-9ca7-d901197a7503" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_user_id_seq" defaultValue="" name="user_id" nullable="0" physicalName="user_id" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
      <remarks>User or system account that initiatied the process.</remarks>
     </column>
     <column id="COL35" populated="true" UUID="8d4320e3-6981-4400-a628-24078fc4c49b" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_rectype_seq" defaultValue="" name="rectype" nullable="0" physicalName="rectype" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The record type:
+* I(nsert)
+* U(pdate)
+* D(elete)</remarks>
     </column>
     <column id="COL36" populated="true" UUID="dcf9a6cb-0ee3-4517-9601-05536823f377" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_version_seq" defaultValue="" name="version" nullable="0" physicalName="version" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="4" userDefinedTypeUUID="63b011c7-c81f-4c75-8271-632b3c87f727" >
-     <remarks></remarks>
+     <remarks>The record version. In append-only mode, records are only physically inserted. Therefore, the primary key of the record is the entity_id and version. The highest version number is the latest.</remarks>
     </column>
     </folder>
     <folder id="FOLTAB213" populated="true" name="Exported Keys" physicalName="Exported Keys" type="3">
@@ -191,19 +202,19 @@
    <remarks></remarks>
    <folder id="FOLTAB571" populated="true" name="Columns" physicalName="Columns" type="1">
     <column id="COL58" populated="true" UUID="1d9a8055-1293-4cec-a1ea-59c44971eaad" autoIncrement="false" autoIncrementSequenceName="hub&lt;customer&gt;_entity_id_seq" defaultValue="" name="entity_id_1" nullable="0" physicalName="entity_id_1" precision="0" primaryKeySeq="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The hashed source entity_id.</remarks>
     </column>
     <column id="COL59" populated="true" UUID="f9dde721-5295-4e5d-a2be-2645c873b0ee" autoIncrement="false" autoIncrementSequenceName="hub&lt;service&gt;_entity_id_seq" defaultValue="" name="entity_id_2" nullable="0" physicalName="entity_id_2" precision="0" primaryKeySeq="1" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The hashed destination entity id.</remarks>
     </column>
     <column id="COL60" populated="true" UUID="21c942ba-a8ba-4b61-8fa2-96af80d5215b" autoIncrement="false" autoIncrementSequenceName="link&lt;customer_service&gt;_version_seq" defaultValue="" name="version" nullable="0" physicalName="version" precision="0" primaryKeySeq="2" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="4" userDefinedTypeUUID="63b011c7-c81f-4c75-8271-632b3c87f727" >
-     <remarks></remarks>
+     <remarks>The record version. In append-only mode, records are only physically inserted. Therefore, the primary key of the record is the entity_id and version. The highest version number is the latest.</remarks>
     </column>
     <column id="COL61" populated="true" UUID="e798f63a-67df-410b-a266-abb8ad60bac7" autoIncrement="false" autoIncrementSequenceName="link&lt;customer_service&gt;_entity_type_1_seq" defaultValue="" name="entity_type_1" nullable="0" physicalName="entity_type_1" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The type of source entity (e.g. customer).</remarks>
     </column>
     <column id="COL62" populated="true" UUID="d4d5e435-f03f-4661-9883-918acb4f5521" autoIncrement="false" autoIncrementSequenceName="link&lt;customer_service&gt;_entity_type_2_seq" defaultValue="" name="entity_type_2" nullable="0" physicalName="entity_type_2" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks></remarks>
+     <remarks>The type of destination entity (e.g. service).</remarks>
     </column>
     <column id="COL63" populated="true" UUID="382fb7d5-b9cb-44fd-840b-3cac7814067f" autoIncrement="false" autoIncrementSequenceName="link&lt;customer_service&gt;_valid_start_time_seq" defaultValue="" name="valid_start_time" nullable="0" physicalName="valid_start_time" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="93" userDefinedTypeUUID="6497d8de-0e00-40d6-a42e-e2adca83be64" >
      <remarks></remarks>
@@ -522,7 +533,8 @@ The valid time and transaction time do not have to be the same for a single fact
      <remarks></remarks>
     </column>
     <column id="COL166" populated="true" UUID="30386e9b-4f8d-4b6b-9eec-96882a8646e3" autoIncrement="false" autoIncrementSequenceName="satellite_process_type_seq" defaultValue="" name="process_type" nullable="0" physicalName="process_type" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
-     <remarks>* Load Full
+     <remarks>The type of load process, e.g.
+* Load Full
 * Load Delta
 * Reload Full
 * Reload Delta

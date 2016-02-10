@@ -25,6 +25,7 @@ trait HiveDataLoaderComponent extends DataLoaderComponent {
                       processType: String,
                       processId: String,
                       userId: String,
+                      projection: Option[List[String]] = None,
                       validStartTimeField: Option[(String, String)] = None,
                       validEndTimeField: Option[(String, String)] = None,
                       deleteIndicatorField: Option[(String, Any)] = None,

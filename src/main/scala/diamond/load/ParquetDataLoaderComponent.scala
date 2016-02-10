@@ -52,6 +52,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                       processType: String,
                       processId: String,
                       userId: String,
+                      projection: Option[List[String]] = None,
                       validStartTimeField: Option[(String, String)] = None,
                       validEndTimeField: Option[(String, String)] = None,
                       deleteIndicatorField: Option[(String, Any)] = None,
@@ -61,7 +62,13 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                       writeChangeTables: Boolean = false) {
 
       if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
-      val renamed = newNames.foldLeft(df)({
+      val deduped = if (projection.isDefined) {
+        df.select(projection.get.map(col): _*)
+          .distinct()
+      } else {
+        df.distinct()
+      }
+      val renamed = newNames.foldLeft(deduped)({
         case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
       })
       val baseNames = renamed.schema.fieldNames.toList diff idFields
@@ -235,8 +242,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .mode(SaveMode.Overwrite)
           .parquet(currentPath)
 
+        val readCount = df.count()
         val deletesCount = if (deletes.isDefined) deletes.get.count() else 0
-        writeProcessLog(sqlContext, tableName, processId, processType, userId, df.count(), inserts.count(), updatesNew.count(), deletesCount, now, now)
+        writeProcessLog(sqlContext, tableName, processId, processType, userId, readCount, readCount - deduped.count(), inserts.count(), updatesNew.count(), deletesCount, now, now)
 
         if (writeChangeTables) {
           val daysAgo = 3
@@ -273,7 +281,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$tablePath")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(sqlContext, tableName, processId, processType, userId, readCount, readCount, 0, 0, now, now)
+        writeProcessLog(sqlContext, tableName, processId, processType, userId, readCount, readCount - deduped.count(), readCount, 0, 0, now, now)
 
         val metadata = Map(
           "idFields" -> idFields,
@@ -312,7 +320,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       val sqlContext = df.sqlContext
       sqlContext.udf.register("hashKey", hashKey(_: String))
       sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
-      df.registerTempTable("imported")
+      val deduped = df.distinct()
+      deduped.registerTempTable("imported")
       val idCols1 = idFields1.map(f => s"i.$f").mkString(",")
       val idCols2 = idFields2.map(f => s"i.$f").mkString(",")
       val (validStartTimeExpr, validEndTimeExpr) =
@@ -458,7 +467,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .mode(SaveMode.Overwrite)
           .parquet(currentPath)
 
-        writeProcessLog(sqlContext, tn, processId, processType, userId, df.count(), insertsCount, 0, deletesCount, now, now)
+        val readCount = df.count()
+        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - deduped.count(), insertsCount, 0, deletesCount, now, now)
 
       } else {
         val links = sqlContext.sql(sql).cache()
@@ -470,7 +480,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$path")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount, 0, 0, now, now)
+        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - deduped.count(), readCount, 0, 0, now, now)
 
         val metadata = Map(
           "entityType1" -> entityType1,
@@ -537,7 +547,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       val sqlContext = df.sqlContext
       sqlContext.udf.register("hashKey", hashKey(_: String))
       sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
-      df.registerTempTable("imported")
+      val deduped = df.distinct()
+      deduped.registerTempTable("imported")
       val idCols = idFields.map(f => s"i.$f").mkString(",")
       val (validStartTimeExpr, validEndTimeExpr) =
         if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
@@ -679,7 +690,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .mode(SaveMode.Overwrite)
           .parquet(currentPath)
 
-        writeProcessLog(sqlContext, tn, processId, processType, userId, df.count(), insertsCount, 0, deletesCount, now, now)
+        val readCount = df.count()
+        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - deduped.count(), insertsCount, 0, deletesCount, now, now)
 
       } else {
         val entities = sqlContext.sql(sql)
@@ -695,7 +707,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$path")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount, 0, 0, now, now)
+        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - deduped.count(), readCount, 0, 0, now, now)
 
         val metadata = Map(
           "entityType" -> entityType,
@@ -736,7 +748,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       val sqlContext = df.sqlContext
       sqlContext.udf.register("hashKey", hashKey(_: String))
       sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
-      df.registerTempTable("imported")
+      val deduped = df.distinct()
+      deduped.registerTempTable("imported")
       val idCols1 = idFields1.map(f => s"i.$f").mkString(",")
       val idCols2 = idFields2.map(f => s"i.$f").mkString(",")
       val (validStartTimeExpr, validEndTimeExpr) =
@@ -881,7 +894,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .mode(SaveMode.Overwrite)
           .parquet(currentPath)
 
-        writeProcessLog(sqlContext, tn, processId, processType, userId, df.count(), insertsCount, 0, deletesCount, now, now)
+        val readCount = df.count()
+        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - deduped.count(), insertsCount, 0, deletesCount, now, now)
 
       } else {
         val mapping = sqlContext.sql(sql).cache()
@@ -893,7 +907,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$path")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount, 0, 0, now, now)
+        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - deduped.count(), readCount, 0, 0, now, now)
 
         val metadata = Map(
           "entityType" -> entityType,
@@ -954,13 +968,14 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                         processType: String,
                         userId: String,
                         readCount: Long,
+                        duplicatesCount: Long,
                         insertsCount: Long,
                         updatesCount: Long,
                         deletesCount: Long,
                         processTime: DateTime,
                         processDate: DateTime) {
 
-      val procRow = Row(processId, processType, userId, readCount, insertsCount, updatesCount, deletesCount, processTime, processDate)
+      val procRow = Row(processId, processType, userId, readCount, duplicatesCount, insertsCount, updatesCount, deletesCount, processTime, processDate)
       val procRDD = sqlContext.sparkContext.parallelize(Seq(procRow))
       val procDF = sqlContext.createDataFrame(procRDD, procSchema)
       procDF.write
