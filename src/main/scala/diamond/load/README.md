@@ -13,16 +13,51 @@ The DataFrames API is also a powerful data manipulation tool, with built in para
 
 The high-level data processing flow will look like:
 
-    Raw Data --> Loaded Data (Acquisition Layer) --> Tidy Data (Intermediate Layer) --> Extracted Features (Feature Layer) --> Wide Tables (Consumption Layer)
+    Raw Data (Raw Data Source Layer) --> Loaded Data (Acquisition Layer) --> Tidy Data (Intermediate Layer) --> Resolved Entities (Entity Link Analysis Layer) --> Extracted Features (Feature Layer) --> Wide Tables (Consumption Layer)
+
+<table>
+    <tr>
+        <th>Data Layer
+        <th>Description
+    </tr>
+    <tr>
+        <td>Raw Data Source Layer
+        <td>Raw source files
+    </tr>
+    <tr>
+        <td>Acquisition Layer
+        <td>
+            <p>Ensures nonduplicated traceable data.
+            <ul>
+                <li>Selects only the data needed.
+                <li>Hashes entity keys.
+                <li>Adds metadata to trace lineage.
+                <li>Separates structural information from descriptive attributes.
+            </ul>
+        </td>
+    </tr>
+    <tr>
+        <td>Intermediate Layer
+        <td>Provides [tidy datasets](http://vita.had.co.nz/papers/tidy-data.pdf). Separates data cleansing transforms from feature extraction routines.
+    </tr>
+    <tr>
+        <td>Entity Link Analysis Layer
+        <td>For example, links customer records through chains of customer key maps.
+    </tr>
+    <tr>
+        <td>Feature Layer
+        <td>A flexible data store of facts and events, usually aggregated or binned.
+    </tr>
+    <tr>
+        <td>Consumption Layer
+        <td>"Wide table" views of features. Multiple views are supported. For example, a Snapshot view shows the latest attribute values at a point in time. A Chord view shows the attribute values at the point in time of a given event.
+    </tr>
+</table>
+
 
 ## Acquisition Layer
 
-The rationale for the Acquisition Layer (AL) is twofold.
-
-1. Selected data is cleaned and prepared into tidy datasets to simplify feature extraction. (It also means feature extraction code is not commingled with data cleaning code, leading to good modular code design.)
-2. As joins can be a cause of performance issues in large scale feature extraction, these joins are performed up front.
-
-IL data structures will adopt Data Vault 2.0 conventions. A Data Vault model is designed to provide long-term historical storage of data coming in from multiple operating systems. It is also a method of looking at historical data that, apart from the modeling aspect, deals with issues such as auditing, tracing of data, loading speed and resilience to change.
+Acquisition Layer data structures will adopt Data Vault 2.0 conventions. A Data Vault model is designed to provide long-term historical storage of data coming in from multiple operating systems. It is also a method of looking at historical data that, apart from the modeling aspect, deals with issues such as auditing, tracing of data, loading speed and resilience to change.
 
 Data vault modeling focuses on several things. First, it emphasizes the need to trace of where all the data came from. This means that every row in a data vault must be accompanied by record source and load date attributes, enabling an auditor to trace values back to the source.
 
@@ -54,9 +89,11 @@ All the tables contain metadata, minimally describing at least the source system
 
 They are there to prevent redundant storage of simple reference data that is referenced a lot.
 
-See [Using the data loading components](file://./usage.md).
+See [usage instructions](usage.md).
 
+## Intermediate Layer
 
+The rationale for the Intermediate Layer (IL) is twofold.
 
-
-
+1. Selected data is cleaned and prepared into tidy datasets to simplify feature extraction. (It also means feature extraction code is not commingled with data cleaning code, leading to good modular code design.)
+2. As joins can be a cause of performance issues in large scale feature extraction, these joins are performed up front.
