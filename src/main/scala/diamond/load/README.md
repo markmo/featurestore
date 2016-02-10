@@ -13,7 +13,12 @@ The DataFrames API is also a powerful data manipulation tool, with built in para
 
 The high-level data processing flow will look like:
 
-    Raw Data (Raw Data Source Layer) --> Loaded Data (Acquisition Layer) --> Tidy Data (Intermediate Layer) --> Resolved Entities (Entity Link Analysis Layer) --> Extracted Features (Feature Layer) --> Wide Tables (Consumption Layer)
+    Raw Data (Raw Data Source Layer)
+        --> Loaded Data (Acquisition Layer)
+            --> Tidy Data (Intermediate Layer)
+                --> Resolved Entities (Entity Link Analysis Layer)
+                    --> Extracted Features (Feature Layer)
+                        --> Wide Tables (Consumption Layer)
 
 <table>
     <tr>
@@ -38,7 +43,7 @@ The high-level data processing flow will look like:
     </tr>
     <tr>
         <td>Intermediate Layer
-        <td>Provides [tidy datasets](http://vita.had.co.nz/papers/tidy-data.pdf). Separates data cleansing transforms from feature extraction routines.
+        <td>Provides <a href="http://vita.had.co.nz/papers/tidy-data.pdf">tidy datasets</a>. Separates data cleansing transforms from feature extraction routines.
     </tr>
     <tr>
         <td>Entity Link Analysis Layer
