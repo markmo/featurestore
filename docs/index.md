@@ -1,4 +1,4 @@
 # Table of Contents
 
-* [Terminology](file://.terminology.md)
-* [Naming Standards](file://./naming_standards.md)
+* [Terminology](terminology.md)
+* [Naming Standards](naming_standards.md)
