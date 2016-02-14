@@ -96,7 +96,7 @@ Files are "loaded" into the Acquisition Layer, its path defined by the `LAYER_AC
             customer_demographics/
                 history.parquet
                 current.parquet
-                process.csv
+                proc.csv
                 meta.json
 
 If `overwrite = true` then `prev.parquet` is included, which is the previous version of the entire file before being overwritten.
@@ -110,7 +110,7 @@ The full possible set of files for a given satellite load is:
             customer_demographics/
                 history.parquet
                 current.parquet
-                process.csv
+                proc.csv
                 meta.json
                 prev.parquet
                 new.parquet
@@ -132,7 +132,7 @@ The full possible set of files for a given satellite load is:
         <td>A file with only the latest version for each entity.
     </tr>
     <tr>
-        <td>process.csv
+        <td>proc.csv
         <td>
             <p>Process metadata, including:
             <ul>
