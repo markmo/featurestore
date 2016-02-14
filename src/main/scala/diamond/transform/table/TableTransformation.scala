@@ -21,7 +21,7 @@ trait TableTransformation extends Transformation {
 
   def apply(df: DataFrame, ctx: TransformationContext): DataFrame
 
-  def addDependencies(dependencies: TableTransformation*) {
+  def addDependencies(dependencies: TableTransformation*): Unit = {
     this.dependencies ++= dependencies
   }
 

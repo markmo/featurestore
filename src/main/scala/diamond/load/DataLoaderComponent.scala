@@ -75,11 +75,11 @@ trait DataLoaderComponent {
       StructField(META_PROCESS_ID, StringType) ::
       StructField(META_PROCESS_TYPE, StringType) ::
       StructField(META_USER_ID, StringType) ::
-      StructField("read_count", IntegerType) ::
-      StructField("duplicates_count", IntegerType) ::
-      StructField("inserts_count", IntegerType) ::
-      StructField("updates_count", IntegerType) ::
-      StructField("deletes_count", IntegerType) ::
+      StructField("read_count", LongType) ::
+      StructField("duplicates_count", LongType) ::
+      StructField("inserts_count", LongType) ::
+      StructField("updates_count", LongType) ::
+      StructField("deletes_count", LongType) ::
       StructField("process_time", TimestampType) ::
       StructField(META_PROCESS_DATE, DateType) :: Nil
     )
@@ -133,7 +133,7 @@ trait DataLoaderComponent {
                       partitionKeys: Option[List[String]] = None,
                       newNames: Map[String, String] = Map(),
                       overwrite: Boolean = false,
-                      writeChangeTables: Boolean = false)
+                      writeChangeTables: Boolean = false): Unit
 
     def loadLink(df: DataFrame,
                  isDelta: Boolean,
@@ -147,7 +147,7 @@ trait DataLoaderComponent {
                  validStartTimeField: Option[(String, String)] = None,
                  validEndTimeField: Option[(String, String)] = None,
                  deleteIndicatorField: Option[(String, Any)] = None,
-                 overwrite: Boolean = false)
+                 overwrite: Boolean = false): Unit
 
     def registerCustomers(df: DataFrame,
                           isDelta: Boolean,
@@ -155,7 +155,7 @@ trait DataLoaderComponent {
                           source: String,
                           processType: String,
                           processId: String,
-                          userId: String)
+                          userId: String): Unit
 
     def registerServices(df: DataFrame,
                          isDelta: Boolean,
@@ -163,7 +163,7 @@ trait DataLoaderComponent {
                          source: String,
                          processType: String,
                          processId: String,
-                         userId: String)
+                         userId: String): Unit
 
     def loadHub(df: DataFrame,
                 isDelta: Boolean,
@@ -177,7 +177,7 @@ trait DataLoaderComponent {
                 validEndTimeField: Option[(String, String)] = None,
                 deleteIndicatorField: Option[(String, Any)] = None,
                 newNames: Map[String, String] = Map(),
-                overwrite: Boolean = false)
+                overwrite: Boolean = false): Unit
 
     def loadMapping(df: DataFrame,
                     isDelta: Boolean,
@@ -193,7 +193,7 @@ trait DataLoaderComponent {
                     validStartTimeField: Option[(String, String)] = None,
                     validEndTimeField: Option[(String, String)] = None,
                     deleteIndicatorField: Option[(String, Any)] = None,
-                    overwrite: Boolean = false)
+                    overwrite: Boolean = false): Unit
 
     def readCurrentMapping(sqlContext: SQLContext, entityType: String, tableName: Option[String] = None): DataFrame
 

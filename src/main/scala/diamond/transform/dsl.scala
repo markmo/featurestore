@@ -10,7 +10,7 @@ import scala.language.implicitConversions
   *
   * Created by markmo on 19/12/2015.
   */
-
+/*
 case class ResourceType(name: String)
 
 class Task(name: String, hours: Int, resourceType: ResourceType) {
@@ -29,7 +29,7 @@ class Task(name: String, hours: Int, resourceType: ResourceType) {
 
   }
 
-}
+}*/
 
 
 //val developer = new ResourceType("developer")

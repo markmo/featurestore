@@ -2,6 +2,7 @@ package diamond.load
 
 import java.net.URI
 import java.nio.charset.Charset
+import java.sql.{Date, Timestamp}
 
 import com.github.nscala_time.time.Imports._
 import diamond.utility.functions._
@@ -12,8 +13,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
-
-import scala.util.parsing.json.JSONObject
+import org.json4s.native.Serialization
 
 /**
   * Parquet writes columns out of order (compared to the schema)
@@ -32,7 +32,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
     val FILE_REMOVED = s"removed$FILE_EXT"
     val FILE_CURRENT = s"current$FILE_EXT"
     val FILE_HISTORY = s"history$FILE_EXT"
-    val FILE_PROCESS = "process.csv"
+    val FILE_PROCESS = "proc.csv"
     val FILE_META = "meta.json"
     val FILE_PREV = s"prev$FILE_EXT"
 
@@ -54,21 +54,21 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                       partitionKeys: Option[List[String]] = None,
                       newNames: Map[String, String] = Map(),
                       overwrite: Boolean = false,
-                      writeChangeTables: Boolean = false) {
+                      writeChangeTables: Boolean = false): Unit = {
 
       if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
       val dedupes = if (projection.isDefined) {
-        df.select(projection.get.map(col): _*)
-          .distinct()
+        df.select(projection.get.map(col): _*).distinct()
       } else {
         df.distinct()
       }
       val renamed = newNames.foldLeft(dedupes)({
         case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
       })
-      val baseNames = renamed.schema.fieldNames.toList diff idFields
+      val pk = idFields.map(f => newNames.getOrElse(f, f))
+      val baseNames = renamed.schema.fieldNames.toList diff pk
       val t = renamed
-        .withColumn(META_ENTITY_ID, hashKeyUDF(concat(lit(idType), concat(idFields.map(col): _*))))
+        .withColumn(META_ENTITY_ID, hashKeyUDF(concat(lit(idType), concat(pk.map(col): _*))))
         .withColumn(META_START_TIME, current_timestamp().cast(TimestampType))
         .withColumn(META_END_TIME, lit(META_OPEN_END_DATE_VALUE).cast(TimestampType))
         .withColumn(META_SOURCE, lit(source))
@@ -121,12 +121,13 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .withColumn(META_VERSION, lit(1))
 
         // records in the new set that are also in the existing set
-        val matched = in
+        // but whose values have changed
+        val changed = in
           .join(ex, META_ENTITY_ID)
-          .where(in(META_HASHED_VALUE) === ex(META_HASHED_VALUE))
+          .where(in(META_HASHED_VALUE) !== ex(META_HASHED_VALUE))
           .cache()
 
-        val (inserts, changes, deletes) =
+        val (inserts, updates, deletes) =
           if (deleteIndicatorField.isDefined) {
             val deletesNew = newRecords
               .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
@@ -135,11 +136,11 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
             (
               // inserts
               newRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
-              // changes
-              matched.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+              // updates
+              changed.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
               // deletes
               if (overwrite) {
-                val deletesExisting = matched
+                val deletesExisting = changed
                   .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
                   .select(in(META_START_TIME) :: header.map(ex(_)): _*)
                   .withColumn(META_END_TIME, in(META_START_TIME))
@@ -155,8 +156,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
             (
               // inserts
               newRecords,
-              // changes
-              matched,
+              // updates
+              changed,
               // deletes
               Some(ex
                 .join(in, ex(META_ENTITY_ID) === in(META_ENTITY_ID), "left_outer")
@@ -167,10 +168,10 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
               )
               )
           } else {
-            (newRecords, matched, None)
+            (newRecords, changed, None)
           }
 
-        val updatesNew = changes
+        val updatesNew = updates
           .select(ex(META_VERSION).as("old_version") :: names.map(in(_)): _*)
           .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
           .withColumn(META_VERSION, col("old_version") + lit(1))
@@ -182,12 +183,12 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           if (deletes.isDefined) deletes.get.cache()
         }
 
-        val updates =
+        val allUpdates =
           if (overwrite) {
             val cols =
               in(META_START_TIME).as("new_start_time") ::
                 in(META_ENTITY_ID) :: (header diff List(META_ENTITY_ID)).map(ex(_))
-            val updatesExisting = changes
+            val updatesExisting = updates
               .select(cols: _*)
               .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
               .withColumn(META_END_TIME, col("new_start_time"))
@@ -199,8 +200,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           }
 
         val all = deletes match {
-          case Some(d) => inserts.unionAll(updates).unionAll(d)
-          case None => inserts.unionAll(updates)
+          case Some(d) => inserts.unionAll(allUpdates).unionAll(d)
+          case None => inserts.unionAll(allUpdates)
         }
 
         val main =
@@ -239,7 +240,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
 
         val readCount = df.count()
         val deletesCount = if (deletes.isDefined) deletes.get.count() else 0
-        writeProcessLog(sqlContext, tableName, processId, processType, userId, readCount, readCount - dedupes.count(), inserts.count(), updatesNew.count(), deletesCount, now, now)
+        writeProcessLog(fs, sqlContext, tableName, processId, processType, userId, readCount, readCount - dedupes.count(), inserts.count(), updatesNew.count(), deletesCount, now, now)
 
         if (writeChangeTables) {
           val daysAgo = 3
@@ -256,11 +257,11 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         }
 
         main.unpersist()
-        matched.unpersist()
+        changed.unpersist()
         ex.unpersist()
 
       } else {
-        val out = idFields.foldLeft(in)({
+        val out = pk.foldLeft(in)({
           case (d, idField) => d.drop(idField)
         })
         out.cache()
@@ -276,7 +277,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$tablePath")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(sqlContext, tableName, processId, processType, userId, readCount, readCount - dedupes.count(), readCount, 0, 0, now, now)
+        writeProcessLog(fs, sqlContext, tableName, processId, processType, userId, readCount, readCount - dedupes.count(), readCount, 0, 0, now, now)
 
         val metadata = Map(
           "idFields" -> idFields,
@@ -305,7 +306,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                  validStartTimeField: Option[(String, String)] = None,
                  validEndTimeField: Option[(String, String)] = None,
                  deleteIndicatorField: Option[(String, Any)] = None,
-                 overwrite: Boolean = false) {
+                 overwrite: Boolean = false): Unit = {
 
       if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
       val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
@@ -408,7 +409,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
               """.stripMargin)
 
             if (overwrite) {
-              (inserts, inserts.count(), 0)
+              (inserts, inserts.count(), 0L)
             } else {
               // union deletes
               val deletes = sqlContext.sql(
@@ -425,7 +426,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
             // inserts
             val inserts = sqlContext.sql(sqlNewLinks)
             if (overwrite) {
-              (inserts, inserts.count(), 0)
+              (inserts, inserts.count(), 0L)
             } else {
               // union deletes
               val deletes = sqlContext.sql(
@@ -441,7 +442,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           } else {
             // inserts
             val inserts = sqlContext.sql(sqlNewLinks)
-            (inserts, inserts.count(), 0)
+            (inserts, inserts.count(), 0L)
           }
 
         all.write
@@ -463,7 +464,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .parquet(currentPath)
 
         val readCount = df.count()
-        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), insertsCount, 0, deletesCount, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), insertsCount, 0, deletesCount, now, now)
 
       } else {
         val links = sqlContext.sql(sql).cache()
@@ -475,7 +476,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$path")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), readCount, 0, 0, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), readCount, 0, 0, now, now)
 
         val metadata = Map(
           "entityType1" -> entityType1,
@@ -500,7 +501,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                           source: String,
                           processType: String,
                           processId: String,
-                          userId: String) {
+                          userId: String): Unit = {
 
       loadHub(df, isDelta, "customer", List(idField), idType, source, processType, processId, userId, newNames = Map(
         idField -> "customer_id"
@@ -513,7 +514,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                          source: String,
                          processType: String,
                          processId: String,
-                         userId: String) {
+                         userId: String): Unit = {
 
       loadHub(df, isDelta, "service", List(idField), idType, source, processType, processId, userId, newNames = Map(
         idField -> "service_id"
@@ -522,7 +523,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
 
     def loadHub(df: DataFrame,
                 isDelta: Boolean,
-                entityType: String, idFields: List[String], idType: String,
+                entityType: String,
+                idFields: List[String],
+                idType: String,
                 source: String,
                 processType: String,
                 processId: String,
@@ -532,7 +535,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                 validEndTimeField: Option[(String, String)] = None,
                 deleteIndicatorField: Option[(String, Any)] = None,
                 newNames: Map[String, String] = Map(),
-                overwrite: Boolean = false) {
+                overwrite: Boolean = false): Unit = {
 
       if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
       val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
@@ -542,9 +545,16 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       val sqlContext = df.sqlContext
       sqlContext.udf.register("hashKey", hashKey(_: String))
       sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
-      val dedupes = df.distinct()
-      dedupes.registerTempTable("imported")
-      val idCols = idFields.map(f => s"i.$f").mkString(",")
+      val renamed = newNames.foldLeft(df)({
+        case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
+      })
+
+      // dedup
+      val in = renamed.distinct()
+      in.registerTempTable("imported")
+
+      val pk = idFields.map(f => newNames.getOrElse(f, f))
+      val idCols = pk.map(f => s"i.$f").mkString(",")
       val (validStartTimeExpr, validEndTimeExpr) =
         if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
           (
@@ -581,7 +591,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       if (fs.exists(new Path(path))) {
         val existing = sqlContext.read.load(s"$BASE_URI$path")
         existing.registerTempTable("existing")
-        val joinPredicates = idFields.map(f => s"e.$f = i.$f").mkString(" and ")
+
+        val joinPredicates = pk.map(f => s"e.$f = i.$f").mkString(" and ")
+
         val sqlNewEntities =
           s"""
              |$sql
@@ -595,6 +607,18 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           } else {
             s"e.valid_start_time"
           }
+
+        // spark (as of 1.5.2) doesn't support subqueries
+        // https://issues.apache.org/jira/browse/SPARK-4226
+
+        val latest = sqlContext.sql(
+          s"""
+             |select entity_id, max(version) as max_version
+             |from existing
+             |group by entity_id
+          """.stripMargin)
+
+        latest.registerTempTable("latest")
 
         val selectExisting =
           s"""
@@ -612,10 +636,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
              |,'$RECTYPE_DELETE' as rectype
              |,e.version + 1 as version
              |from existing e
-             |inner join
-             |(select entity_id, max(version) as max_version
-             |from existing
-             |group by entity_id) e1 on e1.entity_id = e.entity_id and e1.version = e.version
+             |inner join latest l on l.entity_id = e.entity_id and l.version = e.version
           """.stripMargin
 
         val (all, insertsCount, deletesCount) =
@@ -632,7 +653,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
               """.stripMargin)
 
             if (overwrite) {
-              (inserts, inserts.count(), 0)
+              (inserts, inserts.count(), 0L)
             } else {
               // union deletes
               val deletes = sqlContext.sql(
@@ -649,7 +670,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
             // inserts
             val inserts = sqlContext.sql(sqlNewEntities)
             if (overwrite) {
-              (inserts, inserts.count(), 0)
+              (inserts, inserts.count(), 0L)
             } else {
               // union deletes
               val deletes = sqlContext.sql(
@@ -665,20 +686,16 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           } else {
             // inserts
             val inserts = sqlContext.sql(sqlNewEntities)
-            (inserts, inserts.count(), 0)
+            (inserts, inserts.count(), 0L)
           }
 
-        val renamed = newNames.foldLeft(all)({
-          case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
-        })
-
-        renamed.write
+        all.write
           .partitionBy("id_type")
           .mode(saveMode)
           .parquet(s"$BASE_URI$path")
 
         // write snapshot
-        val latestDF = snapshot(renamed)
+        val latestDF = snapshot(all)
 
         latestDF
           .write
@@ -686,7 +703,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .parquet(currentPath)
 
         val readCount = df.count()
-        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), insertsCount, 0, deletesCount, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - in.count(), insertsCount, 0, deletesCount, now, now)
 
       } else {
         val entities = sqlContext.sql(sql)
@@ -702,7 +719,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$path")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), readCount, 0, 0, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - in.count(), readCount, 0, 0, now, now)
 
         val metadata = Map(
           "entityType" -> entityType,
@@ -733,7 +750,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                     validStartTimeField: Option[(String, String)] = None,
                     validEndTimeField: Option[(String, String)] = None,
                     deleteIndicatorField: Option[(String, Any)] = None,
-                    overwrite: Boolean = false) {
+                    overwrite: Boolean = false): Unit = {
 
       if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
       val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
@@ -840,7 +857,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
               """.stripMargin)
 
             if (overwrite) {
-              (inserts, inserts.count(), 0)
+              (inserts, inserts.count(), 0L)
             } else {
               // union deletes
               val deletes = sqlContext.sql(
@@ -857,7 +874,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
             // inserts
             val inserts = sqlContext.sql(sqlNewLinks)
             if (overwrite) {
-              (inserts, inserts.count(), 0)
+              (inserts, inserts.count(), 0L)
             } else {
               // union deletes
               val deletes = sqlContext.sql(
@@ -873,7 +890,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           } else {
             // inserts
             val inserts = sqlContext.sql(sqlNewLinks)
-            (inserts, inserts.count(), 0)
+            (inserts, inserts.count(), 0L)
           }
 
         all.write
@@ -890,7 +907,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .parquet(currentPath)
 
         val readCount = df.count()
-        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), insertsCount, 0, deletesCount, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), insertsCount, 0, deletesCount, now, now)
 
       } else {
         val mapping = sqlContext.sql(sql).cache()
@@ -902,7 +919,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$path")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), readCount, 0, 0, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), readCount, 0, 0, now, now)
 
         val metadata = Map(
           "entityType" -> entityType,
@@ -957,7 +974,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       df.sqlContext.createDataFrame(latest, df.schema)
     }
 
-    def writeProcessLog(sqlContext: SQLContext,
+    def writeProcessLog(fs: FileSystem,
+                        sqlContext: SQLContext,
                         tableName: String,
                         processId: String,
                         processType: String,
@@ -968,25 +986,46 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                         updatesCount: Long,
                         deletesCount: Long,
                         processTime: DateTime,
-                        processDate: DateTime) {
+                        processDate: DateTime): Unit = {
 
-      val procRow = Row(processId, processType, userId, readCount, duplicatesCount, insertsCount, updatesCount, deletesCount, processTime, processDate)
+      val procRow = Row(processId, processType, userId,
+                        readCount, duplicatesCount, insertsCount, updatesCount, deletesCount,
+                        new Timestamp(processTime.getMillis), new Date(processDate.getMillis))
+
       val procRDD = sqlContext.sparkContext.parallelize(Seq(procRow))
       val procDF = sqlContext.createDataFrame(procRDD, procSchema)
-      procDF.write
+      val path = s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_PROCESS"
+
+      val all = if (fs.exists(new Path(path))) {
+        sqlContext.read
+          .format("com.databricks.spark.csv")
+          .option("header", "true")
+          .schema(procSchema)
+          .load(path)
+          .unionAll(procDF)
+      } else {
+        procDF
+      }
+      val sc = sqlContext.sparkContext
+      val out = sqlContext.createDataFrame(sc.parallelize(all.collect()), procSchema)
+
+      out.coalesce(1)
+        .write
         .format("com.databricks.spark.csv")
         .option("header", "true")
-        .mode(SaveMode.Append)
-        .save(s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_PROCESS")
+//        .mode(SaveMode.Append) // not supported
+        .mode(SaveMode.Overwrite)
+        .save(path)
     }
 
-    def writeMetaFile(fs: FileSystem, tableName: String, metadata: Map[String, Any]) {
-      val metaJson = JSONObject(metadata)
+    def writeMetaFile(fs: FileSystem, tableName: String, metadata: Map[String, Any]): Unit = {
+      implicit val formats = org.json4s.DefaultFormats
+      val metaJson = Serialization.write(metadata)
       val os = fs.create(new Path(s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_META"))
       os.write(metaJson.toString.getBytes(Charset.defaultCharset))
     }
 
-    def writeChangeTable(fs: FileSystem, df: DataFrame, header: List[String], fileName: String, daysAgo: Int) {
+    def writeChangeTable(fs: FileSystem, df: DataFrame, header: List[String], fileName: String, daysAgo: Int): Unit = {
       // remove partitions > daysAgo old
       try {
         removeParts(fs, fileName, daysAgo)
@@ -1008,7 +1047,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       * @param uri     String
       * @param daysAgo Int
       */
-    def removeParts(fs: FileSystem, uri: String, daysAgo: Int) {
+    def removeParts(fs: FileSystem, uri: String, daysAgo: Int): Unit = {
       val datePattern = """.*(\d{4}-\d{2}-\d{2})$""".r
       val addedPath = new Path(uri)
       val parts = fs.listFiles(addedPath, false)

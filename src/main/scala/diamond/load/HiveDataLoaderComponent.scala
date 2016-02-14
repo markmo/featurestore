@@ -33,7 +33,7 @@ trait HiveDataLoaderComponent extends DataLoaderComponent {
                       newNames: Map[String, String] = Map(),
                       overwrite: Boolean = true, // irrelevant
                       writeChangeTables: Boolean = false // irrelevant
-                     ) {
+                     ): Unit = {
       val renamed = newNames.foldLeft(df)({
         case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
       })
@@ -188,7 +188,7 @@ trait HiveDataLoaderComponent extends DataLoaderComponent {
                  validStartTimeField: Option[(String, String)] = None,
                  validEndTimeField: Option[(String, String)] = None,
                  deleteIndicatorField: Option[(String, Any)] = None,
-                 overwrite: Boolean = false) = ???
+                 overwrite: Boolean = false): Unit = ???
 
     def registerCustomers(df: DataFrame,
                           isDelta: Boolean,
@@ -196,7 +196,7 @@ trait HiveDataLoaderComponent extends DataLoaderComponent {
                           source: String,
                           processType: String,
                           processId: String,
-                          userId: String) = ???
+                          userId: String): Unit = ???
 
     def registerServices(df: DataFrame,
                          isDelta: Boolean,
@@ -204,7 +204,7 @@ trait HiveDataLoaderComponent extends DataLoaderComponent {
                          source: String,
                          processType: String,
                          processId: String,
-                         userId: String) = ???
+                         userId: String): Unit = ???
 
     def loadHub(df: DataFrame,
                 isDelta: Boolean,
@@ -218,7 +218,7 @@ trait HiveDataLoaderComponent extends DataLoaderComponent {
                 validEndTimeField: Option[(String, String)] = None,
                 deleteIndicatorField: Option[(String, Any)] = None,
                 newNames: Map[String, String] = Map(),
-                overwrite: Boolean = false) = {
+                overwrite: Boolean = false): Unit = {
 
       val sqlContext = df.sqlContext
       sqlContext.sql(
@@ -226,7 +226,7 @@ trait HiveDataLoaderComponent extends DataLoaderComponent {
           |create table if not exists customer_hub(
           |entity_id STRING
           |,customer_id STRING
-          |,customer_id_type STRING
+          |,id_type STRING
           |,process_time TIMESTAMP)
         """.stripMargin)
       sqlContext.udf.register("hashKey", hashKey(_: String))
@@ -236,10 +236,10 @@ trait HiveDataLoaderComponent extends DataLoaderComponent {
            |insert into customer_hub
            |select hashKey(concat('$idType',i.${idFields(0)})) as entity_id
            |,i.${idFields(0)} as customer_id
-           |,'$idType' as customer_id_type
+           |,'$idType' as id_type
            |,current_timestamp() as process_time
            |from imported i
-           |left join customer_hub e on e.customer_id = i.${idFields(0)} and e.customer_id_type = '$idType'
+           |left join customer_hub e on e.customer_id = i.${idFields(0)} and e.id_type = '$idType'
            |where e.entity_id is null
         """.stripMargin)
     }
@@ -258,7 +258,7 @@ trait HiveDataLoaderComponent extends DataLoaderComponent {
                     validStartTimeField: Option[(String, String)] = None,
                     validEndTimeField: Option[(String, String)] = None,
                     deleteIndicatorField: Option[(String, Any)] = None,
-                    overwrite: Boolean = false) = ???
+                    overwrite: Boolean = false): Unit = ???
 
     def readCurrentMapping(sqlContext: SQLContext, entityType: String, tableName: Option[String] = None) = ???
 

@@ -126,7 +126,7 @@ class LoadSatelliteOverwriteParquetSpec extends UnitSpec {
     fi.getAs[Long]("age_25_29") should be (1)
   }
 
-  override def afterAll() {
+  override def afterAll(): Unit = {
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
     fs.delete(new Path(s"/$LAYER_ACQUISITION/customer_demo"), true)
     super.afterAll()

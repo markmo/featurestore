@@ -12,7 +12,7 @@ import scala.util.hashing.MurmurHash3
   */
 trait CustomerResolverComponent { this: DataLoaderComponent =>
 
-  class CustomerResolver {
+  class CustomerResolver extends Serializable {
 
     /**
       *
@@ -96,7 +96,7 @@ trait CustomerResolverComponent { this: DataLoaderComponent =>
       result.vertices.take(1)(0)._2._1
     }
 
-    def vertexId(str: String): VertexId = MurmurHash3.stringHash(str)
+    def vertexId(str: String): VertexId = MurmurHash3.stringHash(str).toLong
 
   }
 

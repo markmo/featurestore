@@ -7,7 +7,8 @@ import diamond.load.{CustomerResolverComponent, ParquetDataLoaderComponent}
   */
 object ComponentRegistry extends
   ParquetDataLoaderComponent with
-  CustomerResolverComponent {
+  CustomerResolverComponent with
+  Serializable {
 
   val dataLoader = new ParquetDataLoader
   val customerResolver = new CustomerResolver

@@ -35,7 +35,7 @@ class TableTransformationPipeline(private var nm: String) extends Pipeline {
           throw e
       })
 
-  def addTransformations(transformations: TableTransformation*) {
+  def addTransformations(transformations: TableTransformation*): Unit = {
     this.transformations ++= transformations
   }
 

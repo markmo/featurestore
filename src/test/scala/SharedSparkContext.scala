@@ -12,14 +12,14 @@ trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
 
   @transient private var _sqlContext: SQLContext = _
 
-  var conf = new SparkConf(false)
+  var sparkConf = new SparkConf(false)
 
   def sc: SparkContext = _sc
 
   def sqlContext = _sqlContext
 
   override def beforeAll(): Unit = {
-    _sc = new SparkContext("local[4]", "Test", conf)
+    _sc = new SparkContext("local[4]", "Test", sparkConf)
     _sqlContext = new TestHiveContext(_sc)
   }
 

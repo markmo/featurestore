@@ -1,3 +1,5 @@
+import com.typesafe.config.ConfigFactory
+import diamond.conf._
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
@@ -5,8 +7,12 @@ import org.scalatest.{FlatSpec, Matchers}
   */
 abstract class UnitSpec extends FlatSpec with SharedSparkContext with Matchers {
 
-  val BASE_URI = "hdfs://localhost:9000"
-  val LAYER_RAW = "base"
-  val LAYER_ACQUISITION = "acquisition"
+  val conf = new AppConfig(ConfigFactory.load())
+
+  import conf.data._
+
+  val BASE_URI = baseURI
+  val LAYER_RAW = raw.path
+  val LAYER_ACQUISITION = acquisition.path
 
 }

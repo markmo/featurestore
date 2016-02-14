@@ -55,7 +55,7 @@ object SQLLoader {
     props
   }
 
-  def unload(path: String) {
+  def unload(path: String): Unit = {
     sql.remove(path)
   }
 

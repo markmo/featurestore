@@ -11,48 +11,50 @@ class LoadSatelliteParquetSpec extends UnitSpec {
 
   val parquetLoader = ComponentRegistry.dataLoader
 
+  import conf.data._
+
   "ParquetDataLoader" should "load customers into a satellite table using Parquet" in {
-    val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
+    val demoSatConfig = acquisition.satellites("customer-demographics")
+    import demoSatConfig._
+
+    val demo = sqlContext.read.load(source)
 
     parquetLoader.loadSatellite(demo,
-      isDelta = false,
-      tableName = "customer_demo",
-      idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
-      processType = "test",
-      processId = "test",
+      isDelta = isDelta,
+      tableName = tableName,
+      idFields = idFields,
+      idType = idType,
+      source = source,
+      processType = "Load Full",
+      processId = "initial",
       userId = "test",
       partitionKeys = None,
-      newNames = Map(
-        "age25to29" -> "age_25_29",
-        "age30to34" -> "age_30_34"
-      )
+      newNames = newNames
     )
 
-    val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_demo/customer_demo.parquet")
+    val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_demo/history.parquet")
 
     customers.count() should be (20000)
   }
 
   it should "load deltas into a satellite table using Parquet" in {
-    val delta = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta.parquet")
+    val demoSatConfig = acquisition.satellites("customer-demographics-delta")
+    import demoSatConfig._
+
+    val delta = sqlContext.read.load(source)
 
     parquetLoader.loadSatellite(delta,
-      isDelta = true,
-      tableName = "customer_demo",
-      idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
-      processType = "test",
-      processId = "test",
+      isDelta = isDelta,
+      tableName = tableName,
+      idFields = idFields,
+      idType = idType,
+      source = source,
+      processType = "Load Delta",
+      processId = "delta",
       userId = "test",
       partitionKeys = None,
-      writeChangeTables = true,
-      newNames = Map(
-        "age25to29" -> "age_25_29",
-        "age30to34" -> "age_30_34"
-      )
+      writeChangeTables = writeChangeTables,
+      newNames = newNames
     )
 
     val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_demo/history.parquet")
@@ -61,30 +63,31 @@ class LoadSatelliteParquetSpec extends UnitSpec {
   }
 
   it should "perform change data capture using Parquet" in {
-    val updates = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta_Updates.parquet")
+    val rawSourcePath = raw.tables("demographics-delta-updates").path
+    val updates = sqlContext.read.load(rawSourcePath)
+
+    val demoSatConfig = acquisition.satellites("customer-demographics-delta")
+    import demoSatConfig._
 
     parquetLoader.loadSatellite(updates,
-      isDelta = true,
-      tableName = "customer_demo",
-      idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
-      processType = "test",
-      processId = "test",
+      isDelta = isDelta,
+      tableName = tableName,
+      idFields = idFields,
+      idType = idType,
+      source = rawSourcePath,
+      processType = "Load Delta",
+      processId = "updates",
       userId = "test",
       partitionKeys = None,
       writeChangeTables = true,
-      newNames = Map(
-        "age25to29" -> "age_25_29",
-        "age30to34" -> "age_30_34"
-      )
+      newNames = newNames
     )
 
     val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_demo/history.parquet")
 
     customers.count() should be (20020)
 
-    val hub = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub.parquet")
+    val hub = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub/history.parquet")
 
     val names = customers.schema.fieldNames.toList
 
@@ -123,10 +126,11 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     fi.getAs[Long]("age_25_29") should be (1)
   }
 
-  override def afterAll() {
+  /*
+  override def afterAll(): Unit = {
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
     fs.delete(new Path(s"/$LAYER_ACQUISITION/customer_demo"), true)
     super.afterAll()
-  }
+  }*/
 
 }

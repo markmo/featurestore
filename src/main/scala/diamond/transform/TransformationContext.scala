@@ -18,7 +18,7 @@ class TransformationContext extends Serializable {
   apply("steps", List[JobStep]())
   apply("sqlparams", Map[String, String]())
 
-  def apply(key: String, value: Any) {
+  def apply(key: String, value: Any): Unit = {
     map.put(key, value)
   }
 

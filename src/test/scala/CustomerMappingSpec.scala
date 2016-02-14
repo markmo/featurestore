@@ -38,7 +38,7 @@ class CustomerMappingSpec extends UnitSpec {
       userId = "test"
     )*/
 
-    val hub = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub.parquet")
+    val hub = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub/history.parquet")
     val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_demo/current.parquet")
     val names = customers.schema.fieldNames.toList
     val joined = customers.join(hub, "entity_id").select(hub("customer_id") :: names.map(customers(_)): _*)

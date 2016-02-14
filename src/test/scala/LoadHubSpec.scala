@@ -14,21 +14,29 @@ class LoadHubSpec extends UnitSpec {
   val parquetLoader = ComponentRegistry.dataLoader
   val hiveLoader = HiveComponentRegistry.dataLoader
 
+  import conf.data._
+
   "Customers" should "be registered into the customer_hub table using Parquet" in {
-    val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
+    val demo = sqlContext.read.load(raw.tables("demographics").path)
+
+    val customerHubConfig = acquisition.hubs("customer")
+    import customerHubConfig._
 
     parquetLoader.loadHub(df = demo,
-      isDelta = false,
-      entityType = "customer",
-      idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
+      isDelta = isDelta,
+      entityType = entityType,
+      idFields = idFields,
+      idType = idType,
+      source = source,
       processType = "test",
       processId = "test",
-      userId = "test"
+      userId = "test",
+      newNames = Map(
+        "cust_id" -> "customer_id"
+      )
     )
 
-    val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub.parquet")
+    val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub/history.parquet")
 
     val schema = customers.schema
 
@@ -38,30 +46,34 @@ class LoadHubSpec extends UnitSpec {
 
     val first = customers.take(1)(0)
     val id = first(schema.fieldIndex("customer_id"))
-    first(schema.fieldIndex("entity_id")) should equal(hashKey("id1" + id.toString))
-    first(schema.fieldIndex("customer_id_type")) should equal("id1")
+    first(schema.fieldIndex("entity_id")) should equal(hashKey(idType + id.toString))
+    first(schema.fieldIndex("id_type")) should equal(idType)
     customers.count() should be (20000)
   }
 
   it should "be registered into the customer_hub table using Hive" in {
-    val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
+    val demo = sqlContext.read.load(raw.tables("demographics").path)
+
+    val customerHubConfig = acquisition.hubs("customer")
+    import customerHubConfig._
 
     hiveLoader.loadHub(df = demo,
-      isDelta = false,
-      entityType = "customer",
-      idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
+      isDelta = isDelta,
+      entityType = entityType,
+      idFields = idFields,
+      idType = idType,
+      source = source,
       processType = "test",
       processId = "test",
-      userId = "test"
+      userId = "test",
+      newNames = newNames
     )
 
     val customers = sqlContext.sql(
       """
         |select entity_id
         |,customer_id
-        |,customer_id_type
+        |,id_type
         |from customer_hub
       """.stripMargin)
 
@@ -69,44 +81,51 @@ class LoadHubSpec extends UnitSpec {
 
     val first = customers.take(1)(0)
     val id = first(schema.fieldIndex("customer_id"))
-    first(schema.fieldIndex("entity_id")) should equal(hashKey("id1" + id.toString))
-    first(schema.fieldIndex("customer_id_type")) should equal("id1")
+    first(schema.fieldIndex("entity_id")) should equal(hashKey(idType + id.toString))
+    first(schema.fieldIndex("id_type")) should equal(idType)
     customers.count() should be (20000)
   }
 
   "New Customers" should "be appended to the customer_hub table using Parquet" in {
-    val delta = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta.parquet")
+    val delta = sqlContext.read.load(raw.tables("demographics-delta").path)
+
+    val customerHubConfig = acquisition.hubs("customer")
+    import customerHubConfig._
 
     parquetLoader.loadHub(df = delta,
       isDelta = true,
-      entityType = "customer",
-      idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
+      entityType = entityType,
+      idFields = idFields,
+      idType = idType,
+      source = source,
       processType = "test",
       processId = "test",
-      userId = "test"
+      userId = "test",
+      newNames = newNames
     )
 
-    val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub.parquet")
+    val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub/history.parquet")
 
     val schema = customers.schema
 
     val last = customers.sort(desc("customer_id")).take(1)(0)
     val id = last(schema.fieldIndex("customer_id"))
-    last(schema.fieldIndex("entity_id")) should equal(hashKey("id1" + id.toString))
+    last(schema.fieldIndex("entity_id")) should equal(hashKey(idType + id.toString))
     customers.count() should be (20010)
   }
 
   it should "be appended to the customer_hub table using Hive" in {
-    val delta = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta.parquet")
+    val delta = sqlContext.read.load(raw.tables("demographics-delta").path)
+
+    val customerHubConfig = acquisition.hubs("customer")
+    import customerHubConfig._
 
     hiveLoader.loadHub(df = delta,
       isDelta = true,
-      entityType = "customer",
+      entityType = entityType,
       idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
+      idType = idType,
+      source = source,
       processType = "test",
       processId = "test",
       userId = "test"
@@ -116,7 +135,7 @@ class LoadHubSpec extends UnitSpec {
       """
         |select entity_id
         |,customer_id
-        |,customer_id_type
+        |,id_type
         |from customer_hub
       """.stripMargin)
 
@@ -124,14 +143,15 @@ class LoadHubSpec extends UnitSpec {
 
     val last = customers.sort(desc("customer_id")).take(1)(0)
     val id = last(schema.fieldIndex("customer_id"))
-    last(schema.fieldIndex("entity_id")) should equal(hashKey("id1" + id.toString))
+    last(schema.fieldIndex("entity_id")) should equal(hashKey(idType + id.toString))
     customers.count() should be (20010)
   }
 
-  override def afterAll() {
+  /*
+  override def afterAll(): Unit = {
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
-    fs.delete(new Path(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub.parquet"), true)
+    fs.delete(new Path(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub"), true)
     super.afterAll()
-  }
+  }*/
 
 }

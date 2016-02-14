@@ -68,7 +68,7 @@ class RowTransformationPipeline(private var nm: String) extends TableTransformat
     sqlContext.createDataFrame(results, newSchema)
   }
 
-  def addTransformations(transformations: RowTransformation*) {
+  def addTransformations(transformations: RowTransformation*): Unit = {
     this.transformations ++= transformations
   }
 

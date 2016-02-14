@@ -12,7 +12,6 @@
         <parameter value="-encoding" />
         <parameter value="UTF-8" />
         <parameter value="-Xfatal-warnings" />
-        <parameter value="-Xlint" />
         <parameter value="-Yno-adapted-args" />
         <parameter value="-Ywarn-numeric-widen" />
         <parameter value="-Xfuture" />
