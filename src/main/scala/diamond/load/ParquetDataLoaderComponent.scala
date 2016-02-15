@@ -194,7 +194,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           if (deletes.isDefined) deletes.get.cache()
         }
 
-        val allUpdates =
+        val us =
           if (overwrite) {
             val cols =
               in(META_START_TIME).as("new_start_time") ::
@@ -212,8 +212,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           }
 
         val all = deletes match {
-          case Some(ds) => inserts.unionAll(allUpdates).unionAll(ds)
-          case None => inserts.unionAll(allUpdates)
+          case Some(ds) => inserts.unionAll(us).unionAll(ds)
+          case None => inserts.unionAll(us)
         }
 
         val main =
@@ -252,7 +252,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
 
         val readCount = df.count()
         val deletesCount = if (deletes.isDefined) deletes.get.count() else 0
-        writeProcessLog(fs, sqlContext, tableName, processId, processType, userId, readCount, readCount - distinct.count(), inserts.count(), updatesNew.count(), deletesCount, now, now)
+        writeProcessLog(fs, sqlContext, tableName, processId, processType, userId,
+                        readCount, readCount - distinct.count(), inserts.count(),
+                        updatesNew.count(), deletesCount, now, now)
 
         if (writeChangeTables) {
           val daysAgo = 3
@@ -289,7 +291,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$tablePath")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(fs, sqlContext, tableName, processId, processType, userId, readCount, readCount - distinct.count(), readCount, 0, 0, now, now)
+        writeProcessLog(fs, sqlContext, tableName, processId, processType, userId,
+                        readCount, readCount - distinct.count(), readCount, 0, 0,
+                        now, now)
 
         val metadata = Map(
           "idFields" -> idFields,
@@ -476,7 +480,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .parquet(currentPath)
 
         val readCount = df.count()
-        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), insertsCount, 0, deletesCount, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
+                        readCount, readCount - dedupes.count(), insertsCount,
+                        0, deletesCount, now, now)
 
       } else {
         val links = sqlContext.sql(sql).cache()
@@ -488,7 +494,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$path")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), readCount, 0, 0, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
+                        readCount, readCount - dedupes.count(), readCount,
+                        0, 0, now, now)
 
         val metadata = Map(
           "entityType1" -> entityType1,
@@ -718,7 +726,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .parquet(currentPath)
 
         val readCount = df.count()
-        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - in.count(), insertsCount, 0, deletesCount, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
+                        readCount, readCount - in.count(), insertsCount, 0,
+                        deletesCount, now, now)
 
       } else {
         val entities = sqlContext.sql(sql)
@@ -734,7 +744,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$path")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - in.count(), readCount, 0, 0, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
+                        readCount, readCount - in.count(), readCount, 0, 0,
+                        now, now)
 
         val metadata = Map(
           "entityType" -> entityType,
@@ -775,8 +787,10 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       val sqlContext = df.sqlContext
       sqlContext.udf.register("hashKey", hashKey(_: String))
       sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
-      val dedupes = df.distinct()
-      dedupes.registerTempTable("imported")
+
+      // dedup
+      val distinct = df.distinct()
+      distinct.registerTempTable("imported")
       val idCols1 = idFields1.map(f => s"i.$f").mkString(",")
       val idCols2 = idFields2.map(f => s"i.$f").mkString(",")
       val (validStartTimeExpr, validEndTimeExpr) =
@@ -922,7 +936,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           .parquet(currentPath)
 
         val readCount = df.count()
-        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), insertsCount, 0, deletesCount, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
+                        readCount, readCount - distinct.count(), insertsCount,
+                        0, deletesCount, now, now)
 
       } else {
         val mapping = sqlContext.sql(sql).cache()
@@ -934,7 +950,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$path")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(fs, sqlContext, tn, processId, processType, userId, readCount, readCount - dedupes.count(), readCount, 0, 0, now, now)
+        writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
+                        readCount, readCount - distinct.count(), readCount,
+                        0, 0, now, now)
 
         val metadata = Map(
           "entityType" -> entityType,

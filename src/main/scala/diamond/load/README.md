@@ -1,3 +1,8 @@
+# Table of Contents
+
+* [Usage](usage.md)
+* [Configuration](configuration.md)
+
 # Loading data
 
 The Diamond Framework starts with the expectation that data is first available in HDFS, either as a Hive table or a Parquet file. The first step will be to load a dataset into a DataFrame. The benefit of using Spark DataFrames as the common data structure is that the schema travels with the data. Therefore, we can use reflection to accomplish tasks instead of hard-coded values that must be updated every time the schema changes. For example, we can write

@@ -17,8 +17,8 @@ class CustomerMappingSpec extends UnitSpec {
   import conf.data._
 
   "ParquetDataLoader" should "load customer mappings using Parquet" in {
-    val emailMapConfig = acquisition.mappings("email")
-    import emailMapConfig._
+    val mapConf = acquisition.mappings("email")
+    import mapConf._
 
     val emailMappings = sqlContext.read.load(source)
 

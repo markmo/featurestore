@@ -17,8 +17,8 @@ class LoadHubSpec extends UnitSpec {
   import conf.data._
 
   "Customers" should "be registered into the customer_hub table using Parquet" in {
-    val customerHubConfig = acquisition.hubs("customer")
-    import customerHubConfig._
+    val hubConf = acquisition.hubs("customer")
+    import hubConf._
 
     val demo = sqlContext.read.load(source)
 
@@ -50,8 +50,8 @@ class LoadHubSpec extends UnitSpec {
   }
 
   it should "be registered into the customer_hub table using Hive" in {
-    val customerHubConfig = acquisition.hubs("customer")
-    import customerHubConfig._
+    val hubConf = acquisition.hubs("customer")
+    import hubConf._
 
     val demo = sqlContext.read.load(source)
 
@@ -87,8 +87,8 @@ class LoadHubSpec extends UnitSpec {
   "New Customers" should "be appended to the customer_hub table using Parquet" in {
     val delta = sqlContext.read.load(raw.tables("demographics-delta").path)
 
-    val customerHubConfig = acquisition.hubs("customer")
-    import customerHubConfig._
+    val hubConf = acquisition.hubs("customer")
+    import hubConf._
 
     parquetLoader.loadHub(df = delta,
       isDelta = true,
@@ -115,8 +115,8 @@ class LoadHubSpec extends UnitSpec {
   it should "be appended to the customer_hub table using Hive" in {
     val delta = sqlContext.read.load(raw.tables("demographics-delta").path)
 
-    val customerHubConfig = acquisition.hubs("customer")
-    import customerHubConfig._
+    val hubConf = acquisition.hubs("customer")
+    import hubConf._
 
     hiveLoader.loadHub(df = delta,
       isDelta = true,

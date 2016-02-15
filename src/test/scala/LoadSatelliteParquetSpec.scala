@@ -14,8 +14,8 @@ class LoadSatelliteParquetSpec extends UnitSpec {
   import conf.data._
 
   "ParquetDataLoader" should "load customers into a satellite table using Parquet" in {
-    val demoSatConfig = acquisition.satellites("customer-demographics")
-    import demoSatConfig._
+    val satConf = acquisition.satellites("customer-demographics")
+    import satConf._
 
     val demo = sqlContext.read.load(source)
 
@@ -38,8 +38,8 @@ class LoadSatelliteParquetSpec extends UnitSpec {
   }
 
   it should "load deltas into a satellite table using Parquet" in {
-    val demoSatConfig = acquisition.satellites("customer-demographics-delta")
-    import demoSatConfig._
+    val satConf = acquisition.satellites("customer-demographics-delta")
+    import satConf._
 
     val delta = sqlContext.read.load(source)
 
@@ -66,8 +66,8 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     val rawSourcePath = raw.tables("demographics-delta-updates").path
     val updates = sqlContext.read.load(rawSourcePath)
 
-    val demoSatConfig = acquisition.satellites("customer-demographics-delta")
-    import demoSatConfig._
+    val satConf = acquisition.satellites("customer-demographics-delta")
+    import satConf._
 
     parquetLoader.loadSatellite(updates,
       isDelta = isDelta,
