@@ -32,7 +32,11 @@ object conf {
     )
   }
 
-  case class AcquisitionConfig(path: String, hubs: Map[String, HubTable], satellites: Map[String, SatelliteTable]) {
+  case class AcquisitionConfig(path: String,
+                               hubs: Map[String, HubTable],
+                               satellites: Map[String, SatelliteTable],
+                               mappings: Map[String, MappingTable]) {
+
     def this(conf: Config) = this(
       conf.getString("path"),
       conf.getObject("hubs").map({
@@ -40,6 +44,9 @@ object conf {
       }).toMap,
       conf.getObject("satellites").map({
         case (tableName: String, configObject: ConfigObject) => (tableName, SatelliteTable(configObject.toConfig))
+      }).toMap,
+      conf.getObject("mappings").map({
+        case (tableName: String, configObject: ConfigObject) => (tableName, MappingTable(configObject.toConfig))
       }).toMap
     )
   }
@@ -128,7 +135,42 @@ object conf {
           Map()
         },
         getAsOpt[Boolean]("overwrite").getOrElse(false),
-        getAsOpt[Boolean]("writeChangeTables").getOrElse(false)
+        getAsOpt[Boolean]("write-change-tables").getOrElse(false)
+      )
+    }
+  }
+
+  case class MappingTable(isDelta: Boolean,
+                          entityType: String,
+                          idFields1: List[String],
+                          idType1: String,
+                          idFields2: List[String],
+                          idType2: String,
+                          confidence: Double,
+                          source: String,
+                          tableName: Option[String],
+                          validStartTimeField: Option[(String, String)],
+                          validEndTimeField: Option[(String, String)],
+                          deleteIndicatorField: Option[(String, Any)],
+                          overwrite: Boolean)
+
+  object MappingTable extends Configurable {
+    def apply(conf: Config) = {
+      implicit val _conf = conf
+      new MappingTable(
+        getAs[Boolean]("delta"),
+        getAs[String]("entity-type"),
+        getAsList[String]("src-id-fields"),
+        getAs[String]("src-id-type"),
+        getAsList[String]("dst-id-fields"),
+        getAs[String]("dst-id-type"),
+        conf.getDouble("confidence"),
+        getAs[String]("source"),
+        getAsOpt[String]("table-name"),
+        None,
+        None,
+        None,
+        getAsOpt[Boolean]("overwrite").getOrElse(false)
       )
     }
   }

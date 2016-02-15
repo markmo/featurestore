@@ -83,6 +83,32 @@ class LoadSatelliteParquetSpec extends UnitSpec {
       newNames = newNames
     )
 
+    val hubConf = acquisition.hubs("customer")
+    val demo = sqlContext.read.load(hubConf.source)
+    parquetLoader.loadHub(demo,
+      isDelta = hubConf.isDelta,
+      entityType = hubConf.entityType,
+      idFields = hubConf.idFields,
+      idType = hubConf.idType,
+      source = hubConf.source,
+      processType = "Load Full",
+      processId = "initial",
+      userId = "test",
+      newNames = hubConf.newNames
+    )
+    val delta = sqlContext.read.load(raw.tables("demographics-delta").path)
+    parquetLoader.loadHub(delta,
+      isDelta = true,
+      entityType = hubConf.entityType,
+      idFields = hubConf.idFields,
+      idType = hubConf.idType,
+      source = hubConf.source,
+      processType = "Load Delta",
+      processId = "delta",
+      userId = "test",
+      newNames = hubConf.newNames
+    )
+
     val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_demo/history.parquet")
 
     customers.count() should be (20020)
@@ -126,11 +152,11 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     fi.getAs[Long]("age_25_29") should be (1)
   }
 
-  /*
   override def afterAll(): Unit = {
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
     fs.delete(new Path(s"/$LAYER_ACQUISITION/customer_demo"), true)
+    fs.delete(new Path(s"/$LAYER_ACQUISITION/customer_hub"), true)
     super.afterAll()
-  }*/
+  }
 
 }

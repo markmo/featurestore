@@ -17,10 +17,10 @@ class LoadHubSpec extends UnitSpec {
   import conf.data._
 
   "Customers" should "be registered into the customer_hub table using Parquet" in {
-    val demo = sqlContext.read.load(raw.tables("demographics").path)
-
     val customerHubConfig = acquisition.hubs("customer")
     import customerHubConfig._
+
+    val demo = sqlContext.read.load(source)
 
     parquetLoader.loadHub(df = demo,
       isDelta = isDelta,
@@ -28,12 +28,10 @@ class LoadHubSpec extends UnitSpec {
       idFields = idFields,
       idType = idType,
       source = source,
-      processType = "test",
-      processId = "test",
+      processType = "Load Full",
+      processId = "initial",
       userId = "test",
-      newNames = Map(
-        "cust_id" -> "customer_id"
-      )
+      newNames = newNames
     )
 
     val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub/history.parquet")
@@ -52,10 +50,10 @@ class LoadHubSpec extends UnitSpec {
   }
 
   it should "be registered into the customer_hub table using Hive" in {
-    val demo = sqlContext.read.load(raw.tables("demographics").path)
-
     val customerHubConfig = acquisition.hubs("customer")
     import customerHubConfig._
+
+    val demo = sqlContext.read.load(source)
 
     hiveLoader.loadHub(df = demo,
       isDelta = isDelta,
@@ -63,8 +61,8 @@ class LoadHubSpec extends UnitSpec {
       idFields = idFields,
       idType = idType,
       source = source,
-      processType = "test",
-      processId = "test",
+      processType = "Load Full",
+      processId = "initial",
       userId = "test",
       newNames = newNames
     )
@@ -98,8 +96,8 @@ class LoadHubSpec extends UnitSpec {
       idFields = idFields,
       idType = idType,
       source = source,
-      processType = "test",
-      processId = "test",
+      processType = "Load Delta",
+      processId = "delta",
       userId = "test",
       newNames = newNames
     )
@@ -123,11 +121,11 @@ class LoadHubSpec extends UnitSpec {
     hiveLoader.loadHub(df = delta,
       isDelta = true,
       entityType = entityType,
-      idFields = List("cust_id"),
+      idFields = idFields,
       idType = idType,
       source = source,
-      processType = "test",
-      processId = "test",
+      processType = "Load Delta",
+      processId = "delta",
       userId = "test"
     )
 
@@ -147,11 +145,10 @@ class LoadHubSpec extends UnitSpec {
     customers.count() should be (20010)
   }
 
-  /*
   override def afterAll(): Unit = {
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
     fs.delete(new Path(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub"), true)
     super.afterAll()
-  }*/
+  }
 
 }

@@ -7,23 +7,25 @@ class LoadSatelliteHiveSpec extends UnitSpec {
 
   val hiveLoader = HiveComponentRegistry.dataLoader
 
+  import conf.data._
+
   "Customers" should "load customers into a satellite table using Hive" in {
-    val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
+    val demoSatConfig = acquisition.satellites("customer-demographics")
+    import demoSatConfig._
+
+    val demo = sqlContext.read.load(source)
 
     hiveLoader.loadSatellite(demo,
-      isDelta = false,
-      tableName = "customer_demo",
-      idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
-      processType = "test",
-      processId = "test",
+      isDelta = isDelta,
+      tableName = tableName,
+      idFields = idFields,
+      idType = idType,
+      source = source,
+      processType = "Load Full",
+      processId = "initial",
       userId = "test",
-      partitionKeys = None,
-      newNames = Map(
-        "age25to29" -> "age_25_29",
-        "age30to34" -> "age_30_34"
-      )
+      partitionKeys = partitionKeys,
+      newNames = newNames
     )
 
     val customers = sqlContext.sql(
@@ -36,22 +38,22 @@ class LoadSatelliteHiveSpec extends UnitSpec {
   }
 
   it should "load deltas into a satellite table using Hive" in {
-    val delta = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta.parquet")
+    val demoSatConfig = acquisition.satellites("customer-demographics-delta")
+    import demoSatConfig._
+
+    val delta = sqlContext.read.load(source)
 
     hiveLoader.loadSatellite(delta,
-      isDelta = true,
-      tableName = "customer_demo",
-      idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
-      processType = "test",
-      processId = "test",
+      isDelta = isDelta,
+      tableName = tableName,
+      idFields = idFields,
+      idType = idType,
+      source = source,
+      processType = "Load Delta",
+      processId = "delta",
       userId = "test",
-      partitionKeys = None,
-      newNames = Map(
-        "age25to29" -> "age_25_29",
-        "age30to34" -> "age_30_34"
-      )
+      partitionKeys = partitionKeys,
+      newNames = newNames
     )
 
     val customers = sqlContext.sql(
@@ -64,22 +66,23 @@ class LoadSatelliteHiveSpec extends UnitSpec {
   }
 
   it should "perform change data capture using Hive" in {
-    val updates = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics_Delta_Updates.parquet")
+    val rawSourcePath = raw.tables("demographics-delta-updates").path
+    val updates = sqlContext.read.load(rawSourcePath)
+
+    val demoSatConfig = acquisition.satellites("customer-demographics-delta")
+    import demoSatConfig._
 
     hiveLoader.loadSatellite(updates,
-      isDelta = true,
-      tableName = "customer_demo",
-      idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
-      processType = "test",
-      processId = "test",
+      isDelta = isDelta,
+      tableName = tableName,
+      idFields = idFields,
+      idType = idType,
+      source = rawSourcePath,
+      processType = "Load Delta",
+      processId = "updates",
       userId = "test",
-      partitionKeys = None,
-      newNames = Map(
-        "age25to29" -> "age_25_29",
-        "age30to34" -> "age_30_34"
-      )
+      partitionKeys = partitionKeys,
+      newNames = newNames
     )
 
     val customers = sqlContext.sql(

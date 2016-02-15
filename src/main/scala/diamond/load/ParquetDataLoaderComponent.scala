@@ -57,12 +57,14 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                       writeChangeTables: Boolean = false): Unit = {
 
       if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
-      val dedupes = if (projection.isDefined) {
+
+      // dedup
+      val distinct = if (projection.isDefined) {
         df.select(projection.get.map(col): _*).distinct()
       } else {
         df.distinct()
       }
-      val renamed = newNames.foldLeft(dedupes)({
+      val renamed = newNames.foldLeft(distinct)({
         case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
       })
       val pk = idFields.map(f => newNames.getOrElse(f, f))
@@ -107,7 +109,9 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       if (fs.exists(new Path(tablePath))) {
 
         // need to use the __current__ set or join below will match multiple rows
-        val ex = sqlContext.read.load(currentPath).cache()
+        val ex = sqlContext.read.load(currentPath)
+          .where("rectype <> 'D'")
+          .cache()
 
         // with update capability, read would filter on `end_time = '9999-12-31'`
         // to select current records, but end_time is not being updated on old records
@@ -133,6 +137,13 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
               .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
               .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
 
+            val deletesExisting = changed
+              .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
+              .select(in(META_START_TIME) :: header.map(ex(_)): _*)
+              .withColumn(META_END_TIME, in(META_START_TIME))
+              .drop(in(META_START_TIME))
+              .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
+
             (
               // inserts
               newRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
@@ -140,32 +151,32 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
               changed.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
               // deletes
               if (overwrite) {
-                val deletesExisting = changed
-                  .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
-                  .select(in(META_START_TIME) :: header.map(ex(_)): _*)
-                  .withColumn(META_END_TIME, in(META_START_TIME))
-                  .drop(in(META_START_TIME))
-                  .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
-
-                Some(deletesNew.unionAll(deletesExisting))
+                Some(deletesExisting
+                  .withColumn(META_VERSION, ex(META_VERSION) + lit(1))
+                  .unionAll(deletesNew))
               } else {
-                Some(deletesNew)
+                Some(deletesExisting.unionAll(deletesNew))
               }
               )
           } else if (!isDelta) {
+            val deletesExisting = ex
+              .join(in, ex(META_ENTITY_ID) === in(META_ENTITY_ID), "left_outer")
+              .where(in(META_ENTITY_ID).isNull)
+              .select(header.map(ex(_)): _*)
+              .withColumn(META_END_TIME, current_timestamp().cast(TimestampType))
+              .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
+
             (
               // inserts
               newRecords,
               // updates
               changed,
               // deletes
-              Some(ex
-                .join(in, ex(META_ENTITY_ID) === in(META_ENTITY_ID), "left_outer")
-                .where(in(META_ENTITY_ID).isNull)
-                .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
-                .withColumn(META_VERSION, ex(META_VERSION) + lit(1))
-                .select(header.map(ex(_)): _*)
-              )
+              if (overwrite) {
+                Some(deletesExisting)
+              } else {
+                Some(deletesExisting.withColumn(META_VERSION, ex(META_VERSION) + lit(1)))
+              }
               )
           } else {
             (newRecords, changed, None)
@@ -187,7 +198,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           if (overwrite) {
             val cols =
               in(META_START_TIME).as("new_start_time") ::
-                in(META_ENTITY_ID) :: (header diff List(META_ENTITY_ID)).map(ex(_))
+              in(META_ENTITY_ID) :: (header diff List(META_ENTITY_ID)).map(ex(_))
+
             val updatesExisting = updates
               .select(cols: _*)
               .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
@@ -200,7 +212,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           }
 
         val all = deletes match {
-          case Some(d) => inserts.unionAll(allUpdates).unionAll(d)
+          case Some(ds) => inserts.unionAll(allUpdates).unionAll(ds)
           case None => inserts.unionAll(allUpdates)
         }
 
@@ -240,7 +252,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
 
         val readCount = df.count()
         val deletesCount = if (deletes.isDefined) deletes.get.count() else 0
-        writeProcessLog(fs, sqlContext, tableName, processId, processType, userId, readCount, readCount - dedupes.count(), inserts.count(), updatesNew.count(), deletesCount, now, now)
+        writeProcessLog(fs, sqlContext, tableName, processId, processType, userId, readCount, readCount - distinct.count(), inserts.count(), updatesNew.count(), deletesCount, now, now)
 
         if (writeChangeTables) {
           val daysAgo = 3
@@ -277,7 +289,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
         writer.parquet(s"$BASE_URI$tablePath")
         writer.parquet(currentPath)
         val readCount = df.count()
-        writeProcessLog(fs, sqlContext, tableName, processId, processType, userId, readCount, readCount - dedupes.count(), readCount, 0, 0, now, now)
+        writeProcessLog(fs, sqlContext, tableName, processId, processType, userId, readCount, readCount - distinct.count(), readCount, 0, 0, now, now)
 
         val metadata = Map(
           "idFields" -> idFields,
@@ -554,7 +566,6 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       in.registerTempTable("imported")
 
       val pk = idFields.map(f => newNames.getOrElse(f, f))
-      val idCols = pk.map(f => s"i.$f").mkString(",")
       val (validStartTimeExpr, validEndTimeExpr) =
         if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
           (
@@ -565,11 +576,12 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
           ("current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
         }
 
+      val inIdCols = pk.map(f => s"i.$f").mkString(",")
       val sql =
         s"""
-           |select hashKey(concat('$idType',$idCols)) as entity_id
+           |select hashKey(concat('$idType',$inIdCols)) as entity_id
            |,'$entityType' as entity_type
-           |,$idCols
+           |,$inIdCols
            |,'$idType' as id_type
            |,current_timestamp() as start_time
            |,'$META_OPEN_END_DATE_VALUE' as end_time
@@ -620,11 +632,14 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
 
         latest.registerTempTable("latest")
 
+        val exIdCols = pk.map(f => s"e.$f").mkString(",")
         val selectExisting =
           s"""
              |select e.entity_id
              |,e.entity_type
              |,e.start_time
+             |,$exIdCols
+             |,e.id_type
              |,current_timestamp() as end_time
              |,'$source' as source
              |,'$processType' as process_type
@@ -636,7 +651,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
              |,'$RECTYPE_DELETE' as rectype
              |,e.version + 1 as version
              |from existing e
-             |inner join latest l on l.entity_id = e.entity_id and l.version = e.version
+             |inner join latest l on l.entity_id = e.entity_id and l.max_version = e.version
           """.stripMargin
 
         val (all, insertsCount, deletesCount) =
@@ -678,7 +693,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
                    |$selectExisting
                    |left join imported i on $joinPredicates
                    |where e.id_type = '$idType'
-                   |and i.entity_id is null
+                   |and i.${pk.head} is null
                 """.stripMargin)
 
               (inserts.unionAll(deletes), inserts.count(), deletes.count())
@@ -807,7 +822,7 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
              |$sql
              |left join existing e on e.entity_id_1 = hashKey(concat('$idType1',$idCols1))
              |and e.entity_id_2 = hashKey(concat('$idType2',$idCols2))
-             |where e.entity_id is null
+             |where e.entity_id_1 is null
           """.stripMargin
 
         val validStartExpr =
@@ -1023,6 +1038,8 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       val metaJson = Serialization.write(metadata)
       val os = fs.create(new Path(s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_META"))
       os.write(metaJson.toString.getBytes(Charset.defaultCharset))
+      os.flush()
+      os.close()
     }
 
     def writeChangeTable(fs: FileSystem, df: DataFrame, header: List[String], fileName: String, daysAgo: Int): Unit = {
@@ -1030,14 +1047,16 @@ trait ParquetDataLoaderComponent extends DataLoaderComponent {
       try {
         removeParts(fs, fileName, daysAgo)
       } catch {
-        case _: Throwable =>
-      } //ignore error
-      df
-        .select(header.map(col): _*)
-        .write
-        .mode(SaveMode.Append)
-        .partitionBy(META_PROCESS_DATE)
-        .parquet(fileName)
+        case _: Throwable => //ignore error
+      }
+      if (df.count() > 0) {
+        df
+          .select(header.map(col): _*)
+          .write
+          .mode(SaveMode.Append)
+          .partitionBy(META_PROCESS_DATE)
+          .parquet(fileName)
+      }
     }
 
     /**

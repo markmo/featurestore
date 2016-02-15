@@ -1,4 +1,8 @@
+import java.net.URI
+
 import diamond.ComponentRegistry
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 
@@ -10,33 +14,62 @@ class CustomerMappingSpec extends UnitSpec {
   val parquetLoader = ComponentRegistry.dataLoader
   val customerResolver = ComponentRegistry.customerResolver
 
-  "ParquetDataLoader" should "load customer mappings using Parquet" in {
+  import conf.data._
 
-    val emailMappings = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/email_mappings.parquet")
+  "ParquetDataLoader" should "load customer mappings using Parquet" in {
+    val emailMapConfig = acquisition.mappings("email")
+    import emailMapConfig._
+
+    val emailMappings = sqlContext.read.load(source)
 
     parquetLoader.loadMapping(emailMappings,
-      isDelta = false,
-      entityType = "customer",
-      idFields1 = List("cust_id"), idType1 = "Customer Number",
-      idFields2 = List("email"), idType2 = "email",
-      confidence = 1.0,
-      source = "test",
-      processType = "test",
-      processId = "test",
+      isDelta = isDelta,
+      entityType = entityType,
+      idFields1 = idFields1, idType1 = idType1,
+      idFields2 = idFields2, idType2 = idType2,
+      confidence = confidence,
+      source = source,
+      processType = "Load Full",
+      processId = "initial",
       userId = "test")
 
-    /*
-    val demo = sqlContext.read.load(s"$BASE_URI/$LAYER_RAW/Customer_Demographics.parquet")
+    val demoConf = acquisition.satellites("customer-demographics")
+    val demo = sqlContext.read.load(demoConf.source)
+    demo.cache()
     parquetLoader.loadSatellite(demo,
-      isDelta = false,
-      tableName = "customer_demo",
-      idFields = List("cust_id"),
-      idType = "id1",
-      source = "test",
-      processType = "test",
-      processId = "test",
+      isDelta = demoConf.isDelta,
+      tableName = demoConf.tableName,
+      idFields = demoConf.idFields,
+      idType = demoConf.idType,
+      source = demoConf.source,
+      processType = "Load Full",
+      processId = "initial",
       userId = "test"
-    )*/
+    )
+    val hubConf = acquisition.hubs("customer")
+    parquetLoader.loadHub(demo,
+      isDelta = hubConf.isDelta,
+      entityType = hubConf.entityType,
+      idFields = hubConf.idFields,
+      idType = hubConf.idType,
+      source = hubConf.source,
+      processType = "Load Full",
+      processId = "initial",
+      userId = "test",
+      newNames = hubConf.newNames
+    )
+    val delta = sqlContext.read.load(raw.tables("demographics-delta").path)
+    parquetLoader.loadHub(delta,
+      isDelta = true,
+      entityType = hubConf.entityType,
+      idFields = hubConf.idFields,
+      idType = hubConf.idType,
+      source = hubConf.source,
+      processType = "Load Delta",
+      processId = "delta",
+      userId = "test",
+      newNames = hubConf.newNames
+    )
 
     val hub = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_hub/history.parquet")
     val customers = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_demo/current.parquet")
@@ -48,5 +81,13 @@ class CustomerMappingSpec extends UnitSpec {
 
     mapped.sort(desc("customer_id")).select("customer_id", "email").take(10).foreach(println)
 
+  }
+
+  override def afterAll(): Unit = {
+    val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
+    fs.delete(new Path(s"/$LAYER_ACQUISITION/customer_mapping"), true)
+    fs.delete(new Path(s"/$LAYER_ACQUISITION/customer_demo"), true)
+    fs.delete(new Path(s"/$LAYER_ACQUISITION/customer_hub"), true)
+    super.afterAll()
   }
 }
