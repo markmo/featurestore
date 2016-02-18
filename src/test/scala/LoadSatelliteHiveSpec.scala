@@ -1,11 +1,11 @@
-
+import diamond.load.HiveDataLoader
 
 /**
   * Created by markmo on 23/01/2016.
   */
 class LoadSatelliteHiveSpec extends UnitSpec {
 
-  val hiveLoader = HiveComponentRegistry.dataLoader
+  val dataLoader = new HiveDataLoader
 
   import conf.data._
 
@@ -15,7 +15,7 @@ class LoadSatelliteHiveSpec extends UnitSpec {
 
     val demo = sqlContext.read.load(source)
 
-    hiveLoader.loadSatellite(demo,
+    dataLoader.loadSatellite(demo,
       isDelta = isDelta,
       tableName = tableName,
       idFields = idFields,
@@ -43,7 +43,7 @@ class LoadSatelliteHiveSpec extends UnitSpec {
 
     val delta = sqlContext.read.load(source)
 
-    hiveLoader.loadSatellite(delta,
+    dataLoader.loadSatellite(delta,
       isDelta = isDelta,
       tableName = tableName,
       idFields = idFields,
@@ -72,7 +72,7 @@ class LoadSatelliteHiveSpec extends UnitSpec {
     val satConf = acquisition.satellites("customer-demographics-delta")
     import satConf._
 
-    hiveLoader.loadSatellite(updates,
+    dataLoader.loadSatellite(updates,
       isDelta = isDelta,
       tableName = tableName,
       idFields = idFields,

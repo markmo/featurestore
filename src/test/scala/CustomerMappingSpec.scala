@@ -1,6 +1,6 @@
 import java.net.URI
 
-import diamond.ComponentRegistry
+import diamond.load.{CustomerResolver, ParquetDataLoader}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.sql.functions._
@@ -11,8 +11,8 @@ import org.apache.spark.sql.types.IntegerType
   */
 class CustomerMappingSpec extends UnitSpec {
 
-  val parquetLoader = ComponentRegistry.dataLoader
-  val customerResolver = ComponentRegistry.customerResolver
+  val dataLoader = new ParquetDataLoader
+  val customerResolver = new CustomerResolver()(dataLoader)
 
   import conf.data._
 
@@ -22,7 +22,7 @@ class CustomerMappingSpec extends UnitSpec {
 
     val emailMappings = sqlContext.read.load(source)
 
-    parquetLoader.loadMapping(emailMappings,
+    dataLoader.loadMapping(emailMappings,
       isDelta = isDelta,
       entityType = entityType,
       idFields1 = idFields1, idType1 = idType1,
@@ -36,7 +36,7 @@ class CustomerMappingSpec extends UnitSpec {
     val demoConf = acquisition.satellites("customer-demographics")
     val demo = sqlContext.read.load(demoConf.source)
     demo.cache()
-    parquetLoader.loadSatellite(demo,
+    dataLoader.loadSatellite(demo,
       isDelta = demoConf.isDelta,
       tableName = demoConf.tableName,
       idFields = demoConf.idFields,
@@ -47,7 +47,7 @@ class CustomerMappingSpec extends UnitSpec {
       userId = "test"
     )
     val hubConf = acquisition.hubs("customer")
-    parquetLoader.loadHub(demo,
+    dataLoader.loadHub(demo,
       isDelta = hubConf.isDelta,
       entityType = hubConf.entityType,
       idFields = hubConf.idFields,
@@ -59,7 +59,7 @@ class CustomerMappingSpec extends UnitSpec {
       newNames = hubConf.newNames
     )
     val delta = sqlContext.read.load(raw.tables("demographics-delta").path)
-    parquetLoader.loadHub(delta,
+    dataLoader.loadHub(delta,
       isDelta = true,
       entityType = hubConf.entityType,
       idFields = hubConf.idFields,

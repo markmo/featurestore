@@ -1,6 +1,6 @@
 import java.net.URI
 
-import diamond.ComponentRegistry
+import diamond.load.ParquetDataLoader
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -9,7 +9,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
   */
 class LoadSatelliteParquetSpec extends UnitSpec {
 
-  val parquetLoader = ComponentRegistry.dataLoader
+  val dataLoader = new ParquetDataLoader
 
   import conf.data._
 
@@ -19,7 +19,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
 
     val demo = sqlContext.read.load(source)
 
-    parquetLoader.loadSatellite(demo,
+    dataLoader.loadSatellite(demo,
       isDelta = isDelta,
       tableName = tableName,
       idFields = idFields,
@@ -43,7 +43,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
 
     val delta = sqlContext.read.load(source)
 
-    parquetLoader.loadSatellite(delta,
+    dataLoader.loadSatellite(delta,
       isDelta = isDelta,
       tableName = tableName,
       idFields = idFields,
@@ -69,7 +69,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     val satConf = acquisition.satellites("customer-demographics-delta")
     import satConf._
 
-    parquetLoader.loadSatellite(updates,
+    dataLoader.loadSatellite(updates,
       isDelta = isDelta,
       tableName = tableName,
       idFields = idFields,
@@ -85,7 +85,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
 
     val hubConf = acquisition.hubs("customer")
     val demo = sqlContext.read.load(hubConf.source)
-    parquetLoader.loadHub(demo,
+    dataLoader.loadHub(demo,
       isDelta = hubConf.isDelta,
       entityType = hubConf.entityType,
       idFields = hubConf.idFields,
@@ -97,7 +97,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
       newNames = hubConf.newNames
     )
     val delta = sqlContext.read.load(raw.tables("demographics-delta").path)
-    parquetLoader.loadHub(delta,
+    dataLoader.loadHub(delta,
       isDelta = true,
       entityType = hubConf.entityType,
       idFields = hubConf.idFields,
@@ -122,7 +122,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     val cust20010 = joined.where("customer_id = '20010'")
 
     cust20010.count() should be (2)
-    cust20010.where("rectype = 'U'").count() should be(1)
+    cust20010.where("rectype = 'U'").count() should be (1)
 
     val current = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/customer_demo/current.parquet")
 
@@ -133,7 +133,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
     current20010.count() should be (1)
 
     val first = current20010.first()
-    first.getAs[String]("rectype") should equal("U")
+    first.getAs[String]("rectype") should equal ("U")
     first.getAs[Int]("version") should be (2)
     first.getAs[Long]("age_25_29") should be (1)
 
@@ -147,7 +147,7 @@ class LoadSatelliteParquetSpec extends UnitSpec {
 
     changed20010.count() should be (1)
     val fi = changed20010.first()
-    fi.getAs[String]("rectype") should equal("U")
+    fi.getAs[String]("rectype") should equal ("U")
     fi.getAs[Int]("version") should be (2)
     fi.getAs[Long]("age_25_29") should be (1)
   }

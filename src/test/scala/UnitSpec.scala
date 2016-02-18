@@ -1,5 +1,5 @@
 import com.typesafe.config.ConfigFactory
-import diamond.conf._
+import diamond.AppConfig
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
@@ -7,7 +7,7 @@ import org.scalatest.{FlatSpec, Matchers}
   */
 abstract class UnitSpec extends FlatSpec with SharedSparkContext with Matchers {
 
-  val conf = new AppConfig(ConfigFactory.load())
+  implicit val conf = new AppConfig(ConfigFactory.load())
 
   import conf.data._
 

@@ -1,7 +1,7 @@
 import java.net.URI
 import java.util.Date
 
-import diamond.ComponentRegistry
+import diamond.load.ParquetDataLoader
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -10,7 +10,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
   */
 class LoadSatelliteOverwriteParquetSpec extends UnitSpec {
 
-  val parquetLoader = ComponentRegistry.dataLoader
+  val dataLoader = new ParquetDataLoader
 
   import conf.data._
 
@@ -20,7 +20,7 @@ class LoadSatelliteOverwriteParquetSpec extends UnitSpec {
 
     val demo = sqlContext.read.load(source)
 
-    parquetLoader.loadSatellite(demo,
+    dataLoader.loadSatellite(demo,
       isDelta = isDelta,
       tableName = tableName,
       idFields = idFields,
@@ -45,7 +45,7 @@ class LoadSatelliteOverwriteParquetSpec extends UnitSpec {
 
     val delta = sqlContext.read.load(source)
 
-    parquetLoader.loadSatellite(delta,
+    dataLoader.loadSatellite(delta,
       isDelta = false,
       tableName = tableName,
       idFields = idFields,
@@ -72,7 +72,7 @@ class LoadSatelliteOverwriteParquetSpec extends UnitSpec {
     val satConf = acquisition.satellites("customer-demographics-delta")
     import satConf._
 
-    parquetLoader.loadSatellite(updates,
+    dataLoader.loadSatellite(updates,
       isDelta = false,
       tableName = tableName,
       idFields = idFields,
@@ -89,7 +89,7 @@ class LoadSatelliteOverwriteParquetSpec extends UnitSpec {
 
     val hubConf = acquisition.hubs("customer")
     val demo = sqlContext.read.load(hubConf.source)
-    parquetLoader.loadHub(demo,
+    dataLoader.loadHub(demo,
       isDelta = hubConf.isDelta,
       entityType = hubConf.entityType,
       idFields = hubConf.idFields,
@@ -101,7 +101,7 @@ class LoadSatelliteOverwriteParquetSpec extends UnitSpec {
       newNames = hubConf.newNames
     )
     val delta = sqlContext.read.load(raw.tables("demographics-delta").path)
-    parquetLoader.loadHub(delta,
+    dataLoader.loadHub(delta,
       isDelta = true,
       entityType = hubConf.entityType,
       idFields = hubConf.idFields,
