@@ -1,5 +1,6 @@
 package diamond.load
 
+import com.github.nscala_time.time.Imports._
 import diamond.AppConfig
 import diamond.utility.functions._
 import diamond.utility.udfs._
@@ -33,11 +34,19 @@ class HiveDataLoader(implicit val conf: AppConfig) extends DataLoader {
                     overwrite: Boolean = true, // irrelevant
                     writeChangeTables: Boolean = false // irrelevant
                    ): Unit = {
-    val renamed = newNames.foldLeft(df)({
+
+    // dedup
+    val distinct = if (projection.isDefined) {
+      df.select(projection.get.map(col): _*).distinct()
+    } else {
+      df.distinct()
+    }
+    val renamed = newNames.foldLeft(distinct)({
       case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
     })
-    val baseNames = renamed.schema.fieldNames.toList diff idFields
-    val in = renamed
+    val pk = idFields.map(f => newNames.getOrElse(f, f))
+    val baseNames = renamed.schema.fieldNames.toList diff pk
+    val t = renamed
       .withColumn(META_ENTITY_ID, hashKeyUDF(concat(lit(idType), concat(idFields.map(col): _*))))
       .withColumn(META_START_TIME, current_timestamp().cast(TimestampType))
       .withColumn(META_END_TIME, lit(META_OPEN_END_DATE_VALUE).cast(TimestampType))
@@ -45,12 +54,26 @@ class HiveDataLoader(implicit val conf: AppConfig) extends DataLoader {
       .withColumn(META_PROCESS_DATE, current_date())
       .withColumn(META_HASHED_VALUE, fastHashUDF(concat(baseNames.map(col): _*)))
 
+    val in = if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
+      t
+        .withColumn(META_VALID_START_TIME, convertStringToTimestampUDF(col(validStartTimeField.get._1), lit(validStartTimeField.get._2)))
+        .withColumn(META_VALID_END_TIME, convertStringToTimestampUDF(col(validEndTimeField.get._1), lit(validEndTimeField.get._2)))
+    } else {
+      t
+    }
+
     // add column headers for process metadata
-    val names = META_ENTITY_ID :: baseNames ++ List(META_START_TIME, META_END_TIME, META_PROCESS_DATE, META_HASHED_VALUE)
+    val names = META_ENTITY_ID :: baseNames ++
+      List(
+        META_VALID_START_TIME, META_VALID_END_TIME,
+        META_START_TIME, META_END_TIME,
+        META_PROCESS_DATE, META_HASHED_VALUE)
+
     val header = names ++ List(META_RECTYPE, META_VERSION)
 
-    val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
     val sqlContext = df.sqlContext
+    val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
+    val now = DateTime.now()
     val tableExist = try {
       sqlContext.sql(s"select count(*) from $tableName").head().getInt(0) > 0
     } catch {
@@ -58,18 +81,24 @@ class HiveDataLoader(implicit val conf: AppConfig) extends DataLoader {
     }
     if (tableExist) {
       // current records are where `end_time = '9999-12-31'`
-      val ex = sqlContext.sql(s"select * from $tableName where $META_END_TIME = '$META_OPEN_END_DATE_VALUE'")
+      val ex = sqlContext.sql(
+        s"""
+           |select * from $tableName
+           |where $META_END_TIME = '$META_OPEN_END_DATE_VALUE'
+           |and rectype <> 'D'
+         """.stripMargin).cache()
 
       // records in the new set that aren't in the existing set
       val newRecords = in
-        .join(ex, in(META_ENTITY_ID) === ex(META_ENTITY_ID), "left")
+        .join(ex, in(META_ENTITY_ID) === ex(META_ENTITY_ID), "left_outer")
         .where(ex(META_ENTITY_ID).isNull)
         .select(names.map(in(_)): _*)
         .withColumn(META_RECTYPE, lit(RECTYPE_INSERT))
         .withColumn(META_VERSION, lit(1))
 
       // records in the new set that are also in the existing set
-      val matchedRecords = in
+      // but whose values have changed
+      val changed = in
         .join(ex, META_ENTITY_ID)
         .where(in(META_HASHED_VALUE) !== ex(META_HASHED_VALUE))
         .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
@@ -82,38 +111,49 @@ class HiveDataLoader(implicit val conf: AppConfig) extends DataLoader {
             .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
             .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
 
-          val deletesExisting = matchedRecords
+          val deletesExisting = changed
             .where(col(deleteIndicatorField.get._1) === lit(deleteIndicatorField.get._2))
-            .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
-            .drop(in(META_END_TIME))
+            .select(in(META_START_TIME) :: header.map(ex(_)): _*)
             .withColumn(META_END_TIME, lit(in(META_START_TIME)))
-            .select(header.map(ex(_)): _*)
+            .drop(in(META_START_TIME))
+            .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
 
           (
             // inserts
             newRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
             // changes
-            matchedRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+            changed.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
             // deletes
-            Some(deletesNew.unionAll(deletesExisting))
+            if (overwrite) {
+              Some(deletesExisting
+                .withColumn(META_VERSION, ex(META_VERSION) + lit(1))
+                .unionAll(deletesNew))
+            } else {
+              Some(deletesExisting.unionAll(deletesNew))
+            }
             )
         } else if (!isDelta) {
+          val deletesExisting = ex
+            .join(in, ex(META_ENTITY_ID) === in(META_ENTITY_ID), "left_outer")
+            .where(in(META_ENTITY_ID).isNull)
+            .select(header.map(ex(_)): _*)
+            .withColumn(META_END_TIME, current_timestamp().cast(TimestampType))
+            .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
+
           (
             // inserts
             newRecords,
             // changes
-            matchedRecords,
+            changed,
             // deletes
-            Some(ex
-              .join(in, ex(META_ENTITY_ID) === in(META_ENTITY_ID), "left")
-              .where(in(META_ENTITY_ID).isNull)
-              .withColumn(META_RECTYPE, lit(RECTYPE_DELETE))
-              .withColumn(META_VERSION, lit(ex(META_VERSION) + 1))
-              .select(header.map(ex(_)): _*)
-            )
+            if (overwrite) {
+              Some(deletesExisting)
+            } else {
+              Some(deletesExisting.withColumn(META_VERSION, ex(META_VERSION) + lit(1)))
+            }
             )
         } else {
-          (newRecords, matchedRecords, None)
+          (newRecords, changed, None)
         }
 
       updates.cache().registerTempTable("updated")

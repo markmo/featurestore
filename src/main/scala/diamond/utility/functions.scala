@@ -1,15 +1,23 @@
 package diamond.utility
 
+import java.io.FileInputStream
 import java.math.BigInteger
+import java.net.URI
+import java.nio.charset.CodingErrorAction
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 
+import diamond.AppConfig
 import hex.genmodel.GenModel
 import net.openhft.hashing.LongHashFunction
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 
 import scala.annotation.tailrec
+import scala.collection.Iterator
+import scala.io.{Codec, Source}
 
 /**
   * Created by markmo on 30/11/2015.
@@ -96,6 +104,43 @@ object functions {
     */
   def fastHash(str: String) =
     LongHashFunction.xx_r39().hashChars(str).toString
+
+  /**
+    * Translates an EBCDIC file into readable lines.
+    *
+    * Extended Binary Coded Decimal Interchange Code (EBCDIC) is an eight-bit
+    * character encoding used mainly on IBM mainframe and IBM mid-range
+    * computer operating systems. EBCDIC descended from the code used with
+    * punched cards.
+    *
+    * This function will report an error if the input is malformed or a
+    * character cannot be mapped.
+    *
+    * @param path String file path
+    * @return Iterator[String] of readable lines
+    */
+  def localReadEBCDIC(path: String): Iterator[String] = {
+    val codec = Codec("ibm500")
+      .onMalformedInput(CodingErrorAction.REPORT)
+      .onUnmappableCharacter(CodingErrorAction.REPORT)
+
+    Source.fromInputStream(new FileInputStream(path))(codec).getLines
+  }
+
+  /**
+    *
+    * @param path String file path
+    * @param conf AppConfig config object
+    * @return Iterator[String] of readable lines
+    */
+  def hdfsReadEBCDIC(path: String)(implicit conf: AppConfig): Iterator[String] = {
+    val fs = FileSystem.get(new URI(conf.data.baseURI), new Configuration())
+    val codec = Codec("ibm500")
+      .onMalformedInput(CodingErrorAction.REPORT)
+      .onUnmappableCharacter(CodingErrorAction.REPORT)
+
+    Source.fromInputStream(fs.open(new Path(path)))(codec).getLines
+  }
 
   def isNumber(str: String) =
     str.matches(s"""[+-]?((\d+(e\d+)?[lL]?)|(((\d+(\.\d*)?)|(\.\d+))(e\d+)?[fF]?))""")

@@ -16,6 +16,7 @@ case class AppConfig(data: DataConfig) {
 case class DataConfig(baseURI: String,
                       meta: MetaConfig,
                       rectype: RectypeConfig,
+                      filename: FilenameConfig,
                       raw: RawSourceConfig,
                       acquisition: AcquisitionConfig) {
 
@@ -23,6 +24,7 @@ case class DataConfig(baseURI: String,
     conf.getString("base-uri"),
     MetaConfig(conf.getConfig("meta")),
     RectypeConfig(conf.getConfig("rectype")),
+    FilenameConfig(conf.getConfig("filename")),
     new RawSourceConfig(conf.getConfig("raw")),
     new AcquisitionConfig(conf.getConfig("acquisition"))
   )
@@ -80,6 +82,26 @@ object RectypeConfig extends Configurable {
       getAs[String]("insert"),
       getAs[String]("update"),
       getAs[String]("delete")
+    )
+  }
+}
+
+case class FilenameConfig(newrecs: String, changed: String, removed: String,
+                          current: String, history: String, process: String,
+                          meta: String, prev: String)
+
+object FilenameConfig extends Configurable {
+  def apply(conf: Config) = {
+    implicit val _conf = conf
+    new FilenameConfig(
+      getAs[String]("new"),
+      getAs[String]("changed"),
+      getAs[String]("removed"),
+      getAs[String]("current"),
+      getAs[String]("history"),
+      getAs[String]("process"),
+      getAs[String]("meta"),
+      getAs[String]("prev")
     )
   }
 }

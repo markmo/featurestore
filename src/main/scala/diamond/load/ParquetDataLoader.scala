@@ -25,17 +25,19 @@ import org.json4s.native.Serialization
   */
 class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
-  val FILE_EXT = ".parquet"
-  val FILE_NEW = s"new$FILE_EXT"
-  val FILE_CHANGED = s"changed$FILE_EXT"
-  val FILE_REMOVED = s"removed$FILE_EXT"
-  val FILE_CURRENT = s"current$FILE_EXT"
-  val FILE_HISTORY = s"history$FILE_EXT"
-  val FILE_PROCESS = "proc.csv"
-  val FILE_META = "meta.json"
-  val FILE_PREV = s"prev$FILE_EXT"
+  import conf.data.filename._
 
-  val LAYER_ACQUISITION = "factory/acquisition"
+  val FILE_EXT = ".parquet"
+  val FILE_NEW = s"$newrecs"
+  val FILE_CHANGED = s"$changed$FILE_EXT"
+  val FILE_REMOVED = s"$removed$FILE_EXT"
+  val FILE_CURRENT = s"$current$FILE_EXT"
+  val FILE_HISTORY = s"$history$FILE_EXT"
+  val FILE_PROCESS = s"$process.csv"
+  val FILE_META = s"$meta.json"
+  val FILE_PREV = s"$prev$FILE_EXT"
+
+  val LAYER_ACQUISITION = conf.data.acquisition.path
 
   def loadSatellite(df: DataFrame,
                     isDelta: Boolean,
@@ -180,6 +182,10 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
         } else {
           (newRecords, changed, None)
         }
+
+      updates.cache().registerTempTable("updated")
+
+      // TODO up to here
 
       val updatesNew = updates
         .select(ex(META_VERSION).as("old_version") :: names.map(in(_)): _*)
@@ -331,8 +337,10 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
     val sqlContext = df.sqlContext
     sqlContext.udf.register("hashKey", hashKey(_: String))
     sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
-    val dedupes = df.distinct()
-    dedupes.registerTempTable("imported")
+
+    // dedup
+    val distinct = df.distinct()
+    distinct.registerTempTable("imported")
     val idCols1 = idFields1.map(f => s"i.$f").mkString(",")
     val idCols2 = idFields2.map(f => s"i.$f").mkString(",")
     val (validStartTimeExpr, validEndTimeExpr) =
@@ -480,7 +488,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
       val readCount = df.count()
       writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
-        readCount, readCount - dedupes.count(), insertsCount,
+        readCount, readCount - distinct.count(), insertsCount,
         0, deletesCount, now, now)
 
     } else {
@@ -494,7 +502,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
       writer.parquet(currentPath)
       val readCount = df.count()
       writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
-        readCount, readCount - dedupes.count(), readCount,
+        readCount, readCount - distinct.count(), readCount,
         0, 0, now, now)
 
       val metadata = Map(
