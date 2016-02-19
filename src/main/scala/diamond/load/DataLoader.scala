@@ -85,6 +85,91 @@ trait DataLoader extends Serializable {
     StructField(META_PROCESS_DATE, DateType) :: Nil
   )
 
+  def loadAll(sqlContext: SQLContext,
+              processType: String,
+              processId: String,
+              userId: String)
+
+  protected def loadAllInternal(sqlContext: SQLContext,
+                                read: String => DataFrame,
+                                processType: String,
+                                processId: String,
+                                userId: String) = {
+
+    import conf.data.acquisition._
+
+    for ((_, hub) <- hubs) {
+      import hub._
+      val df = read(source)
+      loadHub(df, isDelta, entityType, idFields, idType, source,
+        processType, processId, userId, tableName,
+        validStartTimeField, validEndTimeField, deleteIndicatorField,
+        newNames, overwrite)
+    }
+
+    for ((_, sat) <- satellites) {
+      import sat._
+      val df = read(source)
+      loadSatellite(df, isDelta, tableName, idFields, idType, source,
+        processType, processId, userId, projection,
+        validStartTimeField, validEndTimeField, deleteIndicatorField,
+        partitionKeys, newNames, overwrite, writeChangeTables)
+    }
+
+    for ((_, lnk) <- links) {
+      import lnk._
+      val df = read(source)
+      loadLink(df, isDelta,
+        entityType1, idFields1, idType1,
+        entityType2, idFields2, idType2,
+        source, processType, processId, userId, tableName,
+        validStartTimeField, validEndTimeField, deleteIndicatorField,
+        overwrite)
+    }
+
+    for ((_, map) <- mappings) {
+      import map._
+      val df = read(source)
+      loadMapping(df, isDelta, entityType,
+        idFields1, idType1,
+        idFields2, idType2,
+        confidence, source,
+        processType, processId, userId, tableName,
+        validStartTimeField, validEndTimeField, deleteIndicatorField,
+        overwrite)
+    }
+  }
+
+  def registerCustomers(df: DataFrame,
+                        isDelta: Boolean,
+                        idField: String, idType: String,
+                        source: String,
+                        processType: String,
+                        processId: String,
+                        userId: String): Unit
+
+  def registerServices(df: DataFrame,
+                       isDelta: Boolean,
+                       idField: String, idType: String,
+                       source: String,
+                       processType: String,
+                       processId: String,
+                       userId: String): Unit
+
+  def loadHub(df: DataFrame,
+              isDelta: Boolean,
+              entityType: String, idFields: List[String], idType: String,
+              source: String,
+              processType: String,
+              processId: String,
+              userId: String,
+              tableName: Option[String] = None,
+              validStartTimeField: Option[(String, String)] = None,
+              validEndTimeField: Option[(String, String)] = None,
+              deleteIndicatorField: Option[(String, Any)] = None,
+              newNames: Map[String, String] = Map(),
+              overwrite: Boolean = false): Unit
+
   /**
     *
     * @param df DataFrame the DataFrame of the file/table to load into the Satellite table
@@ -149,36 +234,6 @@ trait DataLoader extends Serializable {
                validEndTimeField: Option[(String, String)] = None,
                deleteIndicatorField: Option[(String, Any)] = None,
                overwrite: Boolean = false): Unit
-
-  def registerCustomers(df: DataFrame,
-                        isDelta: Boolean,
-                        idField: String, idType: String,
-                        source: String,
-                        processType: String,
-                        processId: String,
-                        userId: String): Unit
-
-  def registerServices(df: DataFrame,
-                       isDelta: Boolean,
-                       idField: String, idType: String,
-                       source: String,
-                       processType: String,
-                       processId: String,
-                       userId: String): Unit
-
-  def loadHub(df: DataFrame,
-              isDelta: Boolean,
-              entityType: String, idFields: List[String], idType: String,
-              source: String,
-              processType: String,
-              processId: String,
-              userId: String,
-              tableName: Option[String] = None,
-              validStartTimeField: Option[(String, String)] = None,
-              validEndTimeField: Option[(String, String)] = None,
-              deleteIndicatorField: Option[(String, Any)] = None,
-              newNames: Map[String, String] = Map(),
-              overwrite: Boolean = false): Unit
 
   def loadMapping(df: DataFrame,
                   isDelta: Boolean,

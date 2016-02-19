@@ -16,6 +16,65 @@ import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
   */
 class HiveDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
+  def loadAll(sqlContext: SQLContext,
+              processType: String,
+              processId: String,
+              userId: String) = ???
+
+  def registerCustomers(df: DataFrame,
+                        isDelta: Boolean,
+                        idField: String, idType: String,
+                        source: String,
+                        processType: String,
+                        processId: String,
+                        userId: String): Unit = ???
+
+  def registerServices(df: DataFrame,
+                       isDelta: Boolean,
+                       idField: String, idType: String,
+                       source: String,
+                       processType: String,
+                       processId: String,
+                       userId: String): Unit = ???
+
+  def loadHub(df: DataFrame,
+              isDelta: Boolean,
+              entityType: String, idFields: List[String], idType: String,
+              source: String,
+              processType: String,
+              processId: String,
+              userId: String,
+              tableName: Option[String] = None,
+              validStartTimeField: Option[(String, String)] = None,
+              validEndTimeField: Option[(String, String)] = None,
+              deleteIndicatorField: Option[(String, Any)] = None,
+              newNames: Map[String, String] = Map(),
+              overwrite: Boolean = false): Unit = {
+
+    val sqlContext = df.sqlContext
+    sqlContext.sql(
+      """
+        |create table if not exists customer_hub(
+        |entity_id STRING
+        |,customer_id STRING
+        |,id_type STRING
+        |,process_time TIMESTAMP)
+      """.stripMargin)
+    sqlContext.udf.register("hashKey", hashKey(_: String))
+    df.registerTempTable("imported")
+    sqlContext.sql(
+      s"""
+         |insert into customer_hub
+         |select hashKey(concat('$idType',i.${idFields(0)})) as entity_id
+         |,i.${idFields(0)} as customer_id
+         |,'$idType' as id_type
+         |,current_timestamp() as process_time
+         |from imported i
+         |left join customer_hub e on e.customer_id = i.${idFields(0)} and e.id_type = '$idType'
+         |where e.entity_id is null
+      """.stripMargin)
+  }
+
   def loadSatellite(df: DataFrame,
                     isDelta: Boolean,
                     tableName: String,
@@ -228,60 +287,6 @@ class HiveDataLoader(implicit val conf: AppConfig) extends DataLoader {
                validEndTimeField: Option[(String, String)] = None,
                deleteIndicatorField: Option[(String, Any)] = None,
                overwrite: Boolean = false): Unit = ???
-
-  def registerCustomers(df: DataFrame,
-                        isDelta: Boolean,
-                        idField: String, idType: String,
-                        source: String,
-                        processType: String,
-                        processId: String,
-                        userId: String): Unit = ???
-
-  def registerServices(df: DataFrame,
-                       isDelta: Boolean,
-                       idField: String, idType: String,
-                       source: String,
-                       processType: String,
-                       processId: String,
-                       userId: String): Unit = ???
-
-  def loadHub(df: DataFrame,
-              isDelta: Boolean,
-              entityType: String, idFields: List[String], idType: String,
-              source: String,
-              processType: String,
-              processId: String,
-              userId: String,
-              tableName: Option[String] = None,
-              validStartTimeField: Option[(String, String)] = None,
-              validEndTimeField: Option[(String, String)] = None,
-              deleteIndicatorField: Option[(String, Any)] = None,
-              newNames: Map[String, String] = Map(),
-              overwrite: Boolean = false): Unit = {
-
-    val sqlContext = df.sqlContext
-    sqlContext.sql(
-      """
-        |create table if not exists customer_hub(
-        |entity_id STRING
-        |,customer_id STRING
-        |,id_type STRING
-        |,process_time TIMESTAMP)
-      """.stripMargin)
-    sqlContext.udf.register("hashKey", hashKey(_: String))
-    df.registerTempTable("imported")
-    sqlContext.sql(
-      s"""
-         |insert into customer_hub
-         |select hashKey(concat('$idType',i.${idFields(0)})) as entity_id
-         |,i.${idFields(0)} as customer_id
-         |,'$idType' as id_type
-         |,current_timestamp() as process_time
-         |from imported i
-         |left join customer_hub e on e.customer_id = i.${idFields(0)} and e.id_type = '$idType'
-         |where e.entity_id is null
-      """.stripMargin)
-  }
 
   def loadMapping(df: DataFrame,
                   isDelta: Boolean,

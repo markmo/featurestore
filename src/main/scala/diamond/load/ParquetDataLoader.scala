@@ -39,6 +39,259 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
   val LAYER_ACQUISITION = conf.data.acquisition.path
 
+  def loadAll(sqlContext: SQLContext, processType: String, processId: String, userId: String) =
+    loadAllInternal(sqlContext,
+      source => sqlContext.read.load(source),
+      processType, processId, userId)
+
+  def registerCustomers(df: DataFrame,
+                        isDelta: Boolean,
+                        idField: String, idType: String,
+                        source: String,
+                        processType: String,
+                        processId: String,
+                        userId: String): Unit = {
+
+    loadHub(df, isDelta, "customer", List(idField), idType, source, processType, processId, userId, newNames = Map(
+      idField -> "customer_id"
+    ))
+  }
+
+  def registerServices(df: DataFrame,
+                       isDelta: Boolean,
+                       idField: String, idType: String,
+                       source: String,
+                       processType: String,
+                       processId: String,
+                       userId: String): Unit = {
+
+    loadHub(df, isDelta, "service", List(idField), idType, source, processType, processId, userId, newNames = Map(
+      idField -> "service_id"
+    ))
+  }
+
+  def loadHub(df: DataFrame,
+              isDelta: Boolean,
+              entityType: String,
+              idFields: List[String],
+              idType: String,
+              source: String,
+              processType: String,
+              processId: String,
+              userId: String,
+              tableName: Option[String] = None,
+              validStartTimeField: Option[(String, String)] = None,
+              validEndTimeField: Option[(String, String)] = None,
+              deleteIndicatorField: Option[(String, Any)] = None,
+              newNames: Map[String, String] = Map(),
+              overwrite: Boolean = false): Unit = {
+
+    if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
+    val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
+    val tn = if (tableName.isDefined) tableName.get else s"${entityType.toLowerCase}_hub"
+    val path = s"/$LAYER_ACQUISITION/$tn/$FILE_HISTORY"
+    val currentPath = s"$BASE_URI/$LAYER_ACQUISITION/$tn/$FILE_CURRENT"
+    val sqlContext = df.sqlContext
+    sqlContext.udf.register("hashKey", hashKey(_: String))
+    sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
+    val renamed = newNames.foldLeft(df)({
+      case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
+    })
+
+    // dedup
+    val in = renamed.distinct()
+    in.registerTempTable("imported")
+
+    val pk = idFields.map(f => newNames.getOrElse(f, f))
+    val (validStartTimeExpr, validEndTimeExpr) =
+      if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
+        (
+          s"convertStringToTimestamp(i.${validStartTimeField.get._1}, '${validStartTimeField.get._2}'",
+          s"convertStringToTimestamp(i.${validEndTimeField.get._1}, '${validEndTimeField.get._2}'"
+          )
+      } else {
+        ("current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
+      }
+
+    val inIdCols = pk.map(f => s"i.$f").mkString(",")
+    val sql =
+      s"""
+         |select hashKey(concat('$idType',$inIdCols)) as entity_id
+         |,'$entityType' as entity_type
+         |,$inIdCols
+         |,'$idType' as id_type
+         |,current_timestamp() as start_time
+         |,'$META_OPEN_END_DATE_VALUE' as end_time
+         |,'$source' as source
+         |,'$processType' as process_type
+         |,'$processId' as process_id
+         |,current_date() as process_date
+         |,'$userId' as user_id
+         |,$validStartTimeExpr as valid_start_time
+         |,$validEndTimeExpr as valid_end_time
+         |,'$RECTYPE_INSERT' as rectype
+         |,1 as version
+         |from imported i
+      """.stripMargin
+
+    val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
+    val now = DateTime.now()
+
+    if (fs.exists(new Path(path))) {
+      val existing = sqlContext.read.load(s"$BASE_URI$path")
+      existing.registerTempTable("existing")
+
+      val joinPredicates = pk.map(f => s"e.$f = i.$f").mkString(" and ")
+
+      val sqlNewEntities =
+        s"""
+           |$sql
+           |left join existing e on $joinPredicates and e.id_type = '$idType'
+           |where e.entity_id is null
+        """.stripMargin
+
+      val validStartExpr =
+        if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
+          validStartTimeExpr
+        } else {
+          s"e.valid_start_time"
+        }
+
+      // spark (as of 1.5.2) doesn't support subqueries
+      // https://issues.apache.org/jira/browse/SPARK-4226
+
+      val latest = sqlContext.sql(
+        s"""
+           |select entity_id, max(version) as max_version
+           |from existing
+           |group by entity_id
+        """.stripMargin)
+
+      latest.registerTempTable("latest")
+
+      val exIdCols = pk.map(f => s"e.$f").mkString(",")
+      val selectExisting =
+        s"""
+           |select e.entity_id
+           |,e.entity_type
+           |,e.start_time
+           |,$exIdCols
+           |,e.id_type
+           |,current_timestamp() as end_time
+           |,'$source' as source
+           |,'$processType' as process_type
+           |,'$processId' as process_id
+           |,current_date() as process_date
+           |,'$userId' as user_id
+           |,$validStartExpr as valid_start_time
+           |,$validEndTimeExpr as valid_end_time
+           |,'$RECTYPE_DELETE' as rectype
+           |,e.version + 1 as version
+           |from existing e
+           |inner join latest l on l.entity_id = e.entity_id and l.max_version = e.version
+        """.stripMargin
+
+      val (all, insertsCount, deletesCount) =
+        if (deleteIndicatorField.isDefined) {
+          val delIndField = deleteIndicatorField.get._1
+          val delIndFieldVal = deleteIndicatorField.get._2.toString
+          val delIndFieldLit = if (isNumber(delIndFieldVal)) delIndFieldVal else s"'$delIndFieldVal'"
+
+          // inserts
+          val inserts = sqlContext.sql(
+            s"""
+               |$sqlNewEntities
+               |and i.$delIndField <> $delIndFieldLit
+            """.stripMargin)
+
+          if (overwrite) {
+            (inserts, inserts.count(), 0L)
+          } else {
+            // union deletes
+            val deletes = sqlContext.sql(
+              s"""
+                 |$selectExisting
+                 |join imported i on $joinPredicates
+                 |where e.id_type = '$idType'
+                 |where i.$delIndField = $delIndFieldLit
+              """.stripMargin)
+
+            (inserts.unionAll(deletes), inserts.count(), deletes.count())
+          }
+        } else if (!isDelta) {
+          // inserts
+          val inserts = sqlContext.sql(sqlNewEntities)
+          if (overwrite) {
+            (inserts, inserts.count(), 0L)
+          } else {
+            // union deletes
+            val deletes = sqlContext.sql(
+              s"""
+                 |$selectExisting
+                 |left join imported i on $joinPredicates
+                 |where e.id_type = '$idType'
+                 |and i.${pk.head} is null
+              """.stripMargin)
+
+            (inserts.unionAll(deletes), inserts.count(), deletes.count())
+          }
+        } else {
+          // inserts
+          val inserts = sqlContext.sql(sqlNewEntities)
+          (inserts, inserts.count(), 0L)
+        }
+
+      all.write
+        .partitionBy("id_type")
+        .mode(saveMode)
+        .parquet(s"$BASE_URI$path")
+
+      // write snapshot
+      val latestDF = snapshot(all)
+
+      latestDF
+        .write
+        .mode(SaveMode.Overwrite)
+        .parquet(currentPath)
+
+      val readCount = df.count()
+      writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
+        readCount, readCount - in.count(), insertsCount, 0,
+        deletesCount, now, now)
+
+    } else {
+      val entities = sqlContext.sql(sql)
+      val renamed = newNames.foldLeft(entities)({
+        case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
+      })
+      renamed.cache()
+
+      val writer = renamed.write
+        .partitionBy("id_type")
+        .mode(saveMode)
+
+      writer.parquet(s"$BASE_URI$path")
+      writer.parquet(currentPath)
+      val readCount = df.count()
+      writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
+        readCount, readCount - in.count(), readCount, 0, 0,
+        now, now)
+
+      val metadata = Map(
+        "entityType" -> entityType,
+        "idFields" -> idFields,
+        "idType" -> idType,
+        "newNames" -> newNames,
+        "validStartTimeField" -> validStartTimeField,
+        "validEndTimeField" -> validEndTimeField,
+        "deleteIndicatorField" -> deleteIndicatorField
+      )
+      writeMetaFile(fs, tn, metadata)
+
+      renamed.unpersist()
+    }
+  }
+
   def loadSatellite(df: DataFrame,
                     isDelta: Boolean,
                     tableName: String,
@@ -519,254 +772,6 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
       writeMetaFile(fs, tn, metadata)
 
       links.unpersist()
-    }
-  }
-
-  def registerCustomers(df: DataFrame,
-                        isDelta: Boolean,
-                        idField: String, idType: String,
-                        source: String,
-                        processType: String,
-                        processId: String,
-                        userId: String): Unit = {
-
-    loadHub(df, isDelta, "customer", List(idField), idType, source, processType, processId, userId, newNames = Map(
-      idField -> "customer_id"
-    ))
-  }
-
-  def registerServices(df: DataFrame,
-                       isDelta: Boolean,
-                       idField: String, idType: String,
-                       source: String,
-                       processType: String,
-                       processId: String,
-                       userId: String): Unit = {
-
-    loadHub(df, isDelta, "service", List(idField), idType, source, processType, processId, userId, newNames = Map(
-      idField -> "service_id"
-    ))
-  }
-
-  def loadHub(df: DataFrame,
-              isDelta: Boolean,
-              entityType: String,
-              idFields: List[String],
-              idType: String,
-              source: String,
-              processType: String,
-              processId: String,
-              userId: String,
-              tableName: Option[String] = None,
-              validStartTimeField: Option[(String, String)] = None,
-              validEndTimeField: Option[(String, String)] = None,
-              deleteIndicatorField: Option[(String, Any)] = None,
-              newNames: Map[String, String] = Map(),
-              overwrite: Boolean = false): Unit = {
-
-    if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
-    val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
-    val tn = if (tableName.isDefined) tableName.get else s"${entityType.toLowerCase}_hub"
-    val path = s"/$LAYER_ACQUISITION/$tn/$FILE_HISTORY"
-    val currentPath = s"$BASE_URI/$LAYER_ACQUISITION/$tn/$FILE_CURRENT"
-    val sqlContext = df.sqlContext
-    sqlContext.udf.register("hashKey", hashKey(_: String))
-    sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
-    val renamed = newNames.foldLeft(df)({
-      case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
-    })
-
-    // dedup
-    val in = renamed.distinct()
-    in.registerTempTable("imported")
-
-    val pk = idFields.map(f => newNames.getOrElse(f, f))
-    val (validStartTimeExpr, validEndTimeExpr) =
-      if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
-        (
-          s"convertStringToTimestamp(i.${validStartTimeField.get._1}, '${validStartTimeField.get._2}'",
-          s"convertStringToTimestamp(i.${validEndTimeField.get._1}, '${validEndTimeField.get._2}'"
-          )
-      } else {
-        ("current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
-      }
-
-    val inIdCols = pk.map(f => s"i.$f").mkString(",")
-    val sql =
-      s"""
-         |select hashKey(concat('$idType',$inIdCols)) as entity_id
-         |,'$entityType' as entity_type
-         |,$inIdCols
-         |,'$idType' as id_type
-         |,current_timestamp() as start_time
-         |,'$META_OPEN_END_DATE_VALUE' as end_time
-         |,'$source' as source
-         |,'$processType' as process_type
-         |,'$processId' as process_id
-         |,current_date() as process_date
-         |,'$userId' as user_id
-         |,$validStartTimeExpr as valid_start_time
-         |,$validEndTimeExpr as valid_end_time
-         |,'$RECTYPE_INSERT' as rectype
-         |,1 as version
-         |from imported i
-      """.stripMargin
-
-    val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
-    val now = DateTime.now()
-
-    if (fs.exists(new Path(path))) {
-      val existing = sqlContext.read.load(s"$BASE_URI$path")
-      existing.registerTempTable("existing")
-
-      val joinPredicates = pk.map(f => s"e.$f = i.$f").mkString(" and ")
-
-      val sqlNewEntities =
-        s"""
-           |$sql
-           |left join existing e on $joinPredicates and e.id_type = '$idType'
-           |where e.entity_id is null
-        """.stripMargin
-
-      val validStartExpr =
-        if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
-          validStartTimeExpr
-        } else {
-          s"e.valid_start_time"
-        }
-
-      // spark (as of 1.5.2) doesn't support subqueries
-      // https://issues.apache.org/jira/browse/SPARK-4226
-
-      val latest = sqlContext.sql(
-        s"""
-           |select entity_id, max(version) as max_version
-           |from existing
-           |group by entity_id
-        """.stripMargin)
-
-      latest.registerTempTable("latest")
-
-      val exIdCols = pk.map(f => s"e.$f").mkString(",")
-      val selectExisting =
-        s"""
-           |select e.entity_id
-           |,e.entity_type
-           |,e.start_time
-           |,$exIdCols
-           |,e.id_type
-           |,current_timestamp() as end_time
-           |,'$source' as source
-           |,'$processType' as process_type
-           |,'$processId' as process_id
-           |,current_date() as process_date
-           |,'$userId' as user_id
-           |,$validStartExpr as valid_start_time
-           |,$validEndTimeExpr as valid_end_time
-           |,'$RECTYPE_DELETE' as rectype
-           |,e.version + 1 as version
-           |from existing e
-           |inner join latest l on l.entity_id = e.entity_id and l.max_version = e.version
-        """.stripMargin
-
-      val (all, insertsCount, deletesCount) =
-        if (deleteIndicatorField.isDefined) {
-          val delIndField = deleteIndicatorField.get._1
-          val delIndFieldVal = deleteIndicatorField.get._2.toString
-          val delIndFieldLit = if (isNumber(delIndFieldVal)) delIndFieldVal else s"'$delIndFieldVal'"
-
-          // inserts
-          val inserts = sqlContext.sql(
-            s"""
-               |$sqlNewEntities
-               |and i.$delIndField <> $delIndFieldLit
-            """.stripMargin)
-
-          if (overwrite) {
-            (inserts, inserts.count(), 0L)
-          } else {
-            // union deletes
-            val deletes = sqlContext.sql(
-              s"""
-                 |$selectExisting
-                 |join imported i on $joinPredicates
-                 |where e.id_type = '$idType'
-                 |where i.$delIndField = $delIndFieldLit
-              """.stripMargin)
-
-            (inserts.unionAll(deletes), inserts.count(), deletes.count())
-          }
-        } else if (!isDelta) {
-          // inserts
-          val inserts = sqlContext.sql(sqlNewEntities)
-          if (overwrite) {
-            (inserts, inserts.count(), 0L)
-          } else {
-            // union deletes
-            val deletes = sqlContext.sql(
-              s"""
-                 |$selectExisting
-                 |left join imported i on $joinPredicates
-                 |where e.id_type = '$idType'
-                 |and i.${pk.head} is null
-              """.stripMargin)
-
-            (inserts.unionAll(deletes), inserts.count(), deletes.count())
-          }
-        } else {
-          // inserts
-          val inserts = sqlContext.sql(sqlNewEntities)
-          (inserts, inserts.count(), 0L)
-        }
-
-      all.write
-        .partitionBy("id_type")
-        .mode(saveMode)
-        .parquet(s"$BASE_URI$path")
-
-      // write snapshot
-      val latestDF = snapshot(all)
-
-      latestDF
-        .write
-        .mode(SaveMode.Overwrite)
-        .parquet(currentPath)
-
-      val readCount = df.count()
-      writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
-        readCount, readCount - in.count(), insertsCount, 0,
-        deletesCount, now, now)
-
-    } else {
-      val entities = sqlContext.sql(sql)
-      val renamed = newNames.foldLeft(entities)({
-        case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
-      })
-      renamed.cache()
-
-      val writer = renamed.write
-        .partitionBy("id_type")
-        .mode(saveMode)
-
-      writer.parquet(s"$BASE_URI$path")
-      writer.parquet(currentPath)
-      val readCount = df.count()
-      writeProcessLog(fs, sqlContext, tn, processId, processType, userId,
-        readCount, readCount - in.count(), readCount, 0, 0,
-        now, now)
-
-      val metadata = Map(
-        "entityType" -> entityType,
-        "idFields" -> idFields,
-        "idType" -> idType,
-        "newNames" -> newNames,
-        "validStartTimeField" -> validStartTimeField,
-        "validEndTimeField" -> validEndTimeField,
-        "deleteIndicatorField" -> deleteIndicatorField
-      )
-      writeMetaFile(fs, tn, metadata)
-
-      renamed.unpersist()
     }
   }
 

@@ -118,6 +118,7 @@ case class RawSourceConfig(path: String, tables: Map[String, SourceTable]) {
 case class AcquisitionConfig(path: String,
                              hubs: Map[String, HubTable],
                              satellites: Map[String, SatelliteTable],
+                             links: Map[String, LinkTable],
                              mappings: Map[String, MappingTable]) {
 
   def this(conf: Config) = this(
@@ -127,6 +128,9 @@ case class AcquisitionConfig(path: String,
     }).toMap,
     conf.getObject("satellites").map({
       case (tableName: String, configObject: ConfigObject) => (tableName, SatelliteTable(configObject.toConfig))
+    }).toMap,
+    conf.getObject("links").map({
+      case (tableName: String, configObject: ConfigObject) => (tableName, LinkTable(configObject.toConfig))
     }).toMap,
     conf.getObject("mappings").map({
       case (tableName: String, configObject: ConfigObject) => (tableName, MappingTable(configObject.toConfig))
@@ -219,6 +223,41 @@ object SatelliteTable extends Configurable {
       },
       getAsOpt[Boolean]("overwrite").getOrElse(false),
       getAsOpt[Boolean]("write-change-tables").getOrElse(false)
+    )
+  }
+}
+
+case class LinkTable(isDelta: Boolean,
+                     entityType1: String,
+                     idFields1: List[String],
+                     idType1: String,
+                     entityType2: String,
+                     idFields2: List[String],
+                     idType2: String,
+                     source: String,
+                     tableName: Option[String],
+                     validStartTimeField: Option[(String, String)],
+                     validEndTimeField: Option[(String, String)],
+                     deleteIndicatorField: Option[(String, Any)],
+                     overwrite: Boolean)
+
+object LinkTable extends Configurable {
+  def apply(conf: Config) = {
+    implicit val _conf = conf
+    new LinkTable(
+      getAs[Boolean]("delta"),
+      getAs[String]("src-entity-type"),
+      getAsList[String]("src-id-fields"),
+      getAs[String]("src-id-type"),
+      getAs[String]("dst-entity-type"),
+      getAsList[String]("dst-id-fields"),
+      getAs[String]("dst-id-type"),
+      getAs[String]("source"),
+      getAsOpt[String]("table-name"),
+      None,
+      None,
+      None,
+      getAsOpt[Boolean]("overwrite").getOrElse(false)
     )
   }
 }
