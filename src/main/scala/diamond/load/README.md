@@ -25,6 +25,9 @@ The high-level data processing flow will look like:
                     --> Extracted Features (Feature Layer)
                         --> Wide Tables (Consumption Layer)
 
+![Data Layers](../../../../../images/data_layers.png)
+                        
+
 <table>
     <tr>
         <th>Data Layer

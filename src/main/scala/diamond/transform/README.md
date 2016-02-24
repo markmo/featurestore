@@ -57,7 +57,7 @@ See [/src/test/scala/ExecuteSQLSpec](https://github.com/markmo/featurestore/blob
         results.count() should be (1)
     }
 
-(The `parameterize` function is simply converting a map of format { some-key: anyval } from the user configuration to { someKey: str }, which matches the variable format used in the SQL.)
+(The `parameterize` function is simply converting a map of format `{ some-key: anyval }` from the user configuration to `{ someKey: str }`, which matches the variable format used in the SQL.)
 
 Other parameters could be added to those from configuration in the method call.
 
@@ -67,3 +67,8 @@ The signature of `NamedSQLTransformation` is:
                            name: String,                // Name of query
                            params: Map[String, String]) // Dynamic variables to pass into query
 
+Unlike Hive, Spark SQL doesn't support parameterized queries. However, we can achieve an equivalent functionality using Scala language features. The framework uses a template function that is added to String objects using the [pimp my library](http://www.artima.com/weblogs/viewpost.jsp?thread=179766) pattern.
+
+    sqlContext.sql(sqlString.template(params))
+
+The `template` functions is included in the diamond/utility/functions object.

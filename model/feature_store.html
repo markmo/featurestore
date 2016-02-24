@@ -147,7 +147,10 @@
 <td class="tdTableDefinition">version (PK)</td><td class="tdTableDefinition">version</td><td class="tdTableDefinition">INTEGER</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">value</td><td class="tdTableDefinition">value</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
+<td class="tdTableDefinition">session_id</td><td class="tdTableDefinition">session_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">event_value</td><td class="tdTableDefinition">event_value</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">properties</td><td class="tdTableDefinition">properties</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
@@ -204,7 +207,10 @@
 <td class="tdTableDefinition">version (PK)</td><td class="tdTableDefinition">version</td><td class="tdTableDefinition">INTEGER</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">value</td><td class="tdTableDefinition">value</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
+<td class="tdTableDefinition">session_id</td><td class="tdTableDefinition">session_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">event_value</td><td class="tdTableDefinition">event_value</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">properties</td><td class="tdTableDefinition">properties</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
@@ -242,6 +248,7 @@
 <h2>
       (Physical Name: hub&lt;customer&gt;)
       </h2>
+<p class="comment">Hubs contain a list of unique business keys cross referenced to a hashed representation of the key.</p>
 </div>
 <div class="table">
 <table class="tableDefinition" width="100%">
@@ -383,6 +390,7 @@
 <h2>
       (Physical Name: hub&lt;service&gt;)
       </h2>
+<p class="comment">Hubs contain a list of unique business keys cross referenced to a hashed representation of the key.</p>
 </div>
 <div class="table">
 <table class="tableDefinition" width="100%">
@@ -449,6 +457,7 @@
 <h2>
       (Physical Name: link&lt;customer_service&gt;)
       </h2>
+<p class="comment">Associations or transactions between business keys (relating for instance the hubs for customer and product with each other through the purchase transaction) are modeled using link tables. These tables are basically many-to-many join tables, with some metadata.</p>
 </div>
 <div class="table">
 <table class="tableDefinition" width="100%">
@@ -729,7 +738,8 @@
 <h2>
       (Physical Name: satellite)
       </h2>
-<p class="comment">A bitemporal relation contains both valid and transaction time. This provides both historical and rollback information. Historical information (e.g.: "Where did John live in 1992?") is provided by the valid time. Rollback (e.g.: "In 1992, where did the database believe John lived?") is provided by the transaction time.<br>
+<p class="comment">The hubs and links form the structure of the model, but have no temporal attributes and hold no descriptive attributes. These are stored in separate tables called satellites.<br>Usually the attributes are grouped in satellites by source system. However, descriptive attributes such as size, cost, speed, amount or color can change at different rates, so you can also split these attributes up in different satellites based on their rate of change.<br>All the tables contain metadata, minimally describing at least the source system and the date on which this entry became valid, giving a complete historical view of the data.<br>
+<br>Satellites contain bitemporal data. A bitemporal relation contains both valid and transaction time. This provides both historical and rollback information. Historical information (e.g.: "Where did John live in 1992?") is provided by the valid time. Rollback (e.g.: "In 1992, where did the database believe John lived?") is provided by the transaction time.<br>
 <br>The valid time and transaction time do not have to be the same for a single fact. For example, consider a temporal database storing data about the 18th century. The valid time of these facts is somewhere between 1701 and 1800. The transaction time would show when the facts were inserted into the database (for example, January 21, 1998).</p>
 </div>
 <div class="table">
@@ -740,8 +750,18 @@
 <tr valign="top">
 <td class="tdTableDefinition">entity_id (PK)</td><td class="tdTableDefinition">entity_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
+<tr>
+<td colspan="4">
+<div class="comment">The hashed entity key using SHA-256.</div>
+</td>
+</tr>
 <tr valign="top">
 <td class="tdTableDefinition">version (PK)</td><td class="tdTableDefinition">version</td><td class="tdTableDefinition">INTEGER</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+<tr>
+<td colspan="4">
+<div class="comment">The record version. In append-only mode, records are only physically inserted. Therefore, the primary key of the record is the entity_id and version. The highest version number is the latest.</div>
+</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">&lt;attributes&gt;</td><td class="tdTableDefinition">&lt;attributes&gt;</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
@@ -792,8 +812,18 @@
 <tr valign="top">
 <td class="tdTableDefinition">process_id</td><td class="tdTableDefinition">process_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
+<tr>
+<td colspan="4">
+<div class="comment">Unique job id.</div>
+</td>
+</tr>
 <tr valign="top">
 <td class="tdTableDefinition">process_date</td><td class="tdTableDefinition">process_date</td><td class="tdTableDefinition">DATE</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+<tr>
+<td colspan="4">
+<div class="comment">The date on which the process ran.</div>
+</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">user_id</td><td class="tdTableDefinition">user_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
@@ -806,8 +836,18 @@
 <tr valign="top">
 <td class="tdTableDefinition">hashed_value</td><td class="tdTableDefinition">hashed_value</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
+<tr>
+<td colspan="4">
+<div class="comment">The hash value of all non-key and non-metadata fields used to determine change against new records of the same key.</div>
+</td>
+</tr>
 <tr valign="top">
 <td class="tdTableDefinition">rectype</td><td class="tdTableDefinition">rectype</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+<tr>
+<td colspan="4">
+<div class="comment">The record type:<br>* I(nsert)<br>* U(pdate)<br>* D(elete)</div>
+</td>
 </tr>
 </table>
 <div class="references"></div>
