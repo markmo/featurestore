@@ -142,6 +142,38 @@ object functions {
     Source.fromInputStream(fs.open(new Path(path)))(codec).getLines
   }
 
+  /**
+    * Turns a string of format "foo_bar" or "foo-bar" into camel case "FooBar"
+    *
+    * @param str String
+    */
+  def camelize(str: String, startUpper: Boolean = false): String = {
+    def loop(x: List[Char]): List[Char] = x match {
+      case ('_'|'-') :: ('_'|'-') :: rest => loop('_' :: rest)
+      case ('_'|'-') :: c :: rest => Character.toUpperCase(c) :: loop(rest)
+      case ('_'|'-') :: Nil => Nil
+      case c :: rest => c :: loop(rest)
+      case Nil => Nil
+    }
+    if (str == null) {
+      ""
+    } else if (startUpper) {
+      loop('_' :: str.toList).mkString
+    } else {
+      loop(str.toList).mkString
+    }
+  }
+
+  /**
+    * Convert map of format { some-key: anyval } to { someKey: str }
+    *
+    * @param conf Map[String, Any]
+    * @return Map[String, String]
+    */
+  def parameterize(conf: Map[String, Any]): Map[String ,String] = conf map {
+    case (k, v) => (camelize(k), v.toString)
+  }
+
   def isNumber(str: String) =
     str.matches(s"""[+-]?((\d+(e\d+)?[lL]?)|(((\d+(\.\d*)?)|(\.\d+))(e\d+)?[fF]?))""")
 
@@ -160,57 +192,54 @@ object functions {
       */
     def template(vars: Map[String, String]): String = {
       val sb = new StringBuilder
+      val pattern = """^('\$([^']*)'|"\$([^"]*)"|'\$\{([^']*)}'|"\$\{([^"]*)}"|\$\{([^}]*)}|\$([^\s]*)\s|\$([^\s]*)$).*""".r
 
       @tailrec
-      def loop(str: String): String = {
-        if (str.length == 0) {
-          sb.toString
-        } else if (str.startsWith("$$")) {
-          sb.append("$$")
-          loop(str.substring(2))
-        } else if (str.startsWith("${")) {
-          val i = str.indexOf("}")
-          if (i == -1) {
-            sb.append(str).toString
+      def loop(str: String): String = str match {
+        case x if x.isEmpty => sb.toString
+        case pattern(x, a, b, c, d, e, f, g) =>
+          if (a != null) {
+            // '$a'
+            val replacement = vars.getOrElse(a, s"$$a")
+            sb.append("'").append(replacement).append("'")
+            loop(str.substring(x.length))
+          } else if (b != null) {
+            // "$b"
+            val replacement = vars.getOrElse(b, s"$$b")
+            sb.append('"').append(replacement).append('"')
+            loop(str.substring(x.length))
+          } else if (c != null) {
+            // '${c}'
+            val replacement = vars.getOrElse(c, s"$${c}")
+            sb.append("'").append(replacement).append("'")
+            loop(str.substring(x.length))
+          } else if (d != null) {
+            // "${d}"
+            val replacement = vars.getOrElse(c, s"$${d}")
+            sb.append('"').append(replacement).append('"')
+            loop(str.substring(x.length))
+          } else if (e != null) {
+            // ${e}
+            val replacement = vars.getOrElse(e, s"$${$e}")
+            sb.append(replacement)
+            loop(str.substring(x.length))
+          } else if (f != null) {
+            // $f\s
+            val replacement = vars.getOrElse(f, s"$$$f")
+            sb.append(replacement).append(" ")
+            loop(str.substring(x.length))
+          } else if (g != null) {
+            // $e<end-of-string>
+            val replacement = vars.getOrElse(g, s"$$$g")
+            sb.append(replacement)
+            loop(str.substring(x.length))
           } else {
-            val replacement = vars.get(str.substring(2, i)).orNull
-            if (replacement == null) {
-              sb.append("${")
-              loop(str.substring(2))
-            } else {
-              sb.append(replacement)
-              loop(str.substring(i + 1))
-            }
+            sb.append(str.head)
+            loop(str.tail)
           }
-        } else if (str.startsWith("$")) {
-          val n = str.length
-          if (n == 1) {
-            sb.append(str).toString
-          } else {
-            val i = str.indexOf(" ")
-            val j = if (i == -1) n else i
-            val replacement = vars.get(str.substring(1, j)).orNull
-            if (replacement == null) {
-              sb.append("$")
-              loop(str.substring(1))
-            } else {
-              sb.append(replacement)
-              if (j == n) {
-                sb.toString
-              } else {
-                loop(str.substring(j + 1))
-              }
-            }
-          }
-        } else {
-          val i = str.indexOf("$")
-          if (i == -1) {
-            sb.append(str).toString
-          } else {
-            sb.append(str.substring(0, i))
-            loop(str.substring(i))
-          }
-        }
+        case _ =>
+          sb.append(str.head)
+          loop(str.tail)
       }
 
       loop(str)

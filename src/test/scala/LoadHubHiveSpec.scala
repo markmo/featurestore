@@ -64,7 +64,8 @@ class LoadHubHiveSpec extends UnitSpec {
       source = source,
       processType = "Load Delta",
       processId = "delta",
-      userId = "test"
+      userId = "test",
+      newNames = newNames
     )
 
     val customers = sqlContext.sql(

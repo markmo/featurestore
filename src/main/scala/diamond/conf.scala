@@ -7,103 +7,36 @@ import scala.collection.JavaConversions._
 /**
   * Created by markmo on 15/02/2016.
   */
-case class AppConfig(data: DataConfig) {
+case class AppConfig(data: DataConfig, user: Map[String, Any]) {
   def this(conf: Config) = this(
-    new DataConfig(conf.getConfig("data"))
+    new DataConfig(conf.getConfig("data")),
+    conf.getObject("user").map({
+      case (key: String, value: ConfigValue) => (key, value.unwrapped())
+    }).toMap
   )
 }
 
 case class DataConfig(baseURI: String,
-                      meta: MetaConfig,
-                      rectype: RectypeConfig,
-                      filename: FilenameConfig,
+                      meta: Map[String, String],
+                      rectype: Map[String, String],
+                      filename: Map[String, String],
                       raw: RawSourceConfig,
                       acquisition: AcquisitionConfig) {
 
   def this(conf: Config) = this(
     conf.getString("base-uri"),
-    MetaConfig(conf.getConfig("meta")),
-    RectypeConfig(conf.getConfig("rectype")),
-    FilenameConfig(conf.getConfig("filename")),
+    conf.getObject("meta").map({
+      case (key: String, value: ConfigValue) => (key, value.unwrapped().toString)
+    }).toMap,
+    conf.getObject("rectype").map({
+      case (key: String, value: ConfigValue) => (key, value.unwrapped().toString)
+    }).toMap,
+    conf.getObject("filename").map({
+      case (key: String, value: ConfigValue) => (key, value.unwrapped().toString)
+    }).toMap,
     new RawSourceConfig(conf.getConfig("raw")),
     new AcquisitionConfig(conf.getConfig("acquisition"))
   )
-}
-
-case class MetaConfig(entityId: String,
-                      startTime: String,
-                      endTime: String,
-                      source: String,
-                      processType: String,
-                      processId: String,
-                      processDate: String,
-                      userId: String,
-                      hashedValue: String,
-                      rectype: String,
-                      version: String,
-                      openEndDateValue: String,
-                      validStartTimeField: String,
-                      validEndTimeField: String,
-                      validStartTime: String,
-                      validEndTime: String,
-                      deleteIndicatorField: String)
-
-object MetaConfig extends Configurable {
-  def apply(conf: Config) = {
-    implicit val _conf = conf
-    new MetaConfig(
-      getAs[String]("entity-id"),
-      getAs[String]("start-time"),
-      getAs[String]("end-time"),
-      getAs[String]("source"),
-      getAs[String]("process-type"),
-      getAs[String]("process-id"),
-      getAs[String]("process-date"),
-      getAs[String]("user-id"),
-      getAs[String]("hashed-value"),
-      getAs[String]("rectype"),
-      getAs[String]("version"),
-      getAs[String]("open-end-date-value"),
-      getAs[String]("valid-start-time-field"),
-      getAs[String]("valid-end-time-field"),
-      getAs[String]("valid-start-time"),
-      getAs[String]("valid-end-time"),
-      getAs[String]("delete-indicator-field")
-    )
-  }
-}
-
-case class RectypeConfig(insert: String, update: String, delete: String)
-
-object RectypeConfig extends Configurable {
-  def apply(conf: Config) = {
-    implicit val _conf = conf
-    new RectypeConfig(
-      getAs[String]("insert"),
-      getAs[String]("update"),
-      getAs[String]("delete")
-    )
-  }
-}
-
-case class FilenameConfig(newrecs: String, changed: String, removed: String,
-                          current: String, history: String, process: String,
-                          meta: String, prev: String)
-
-object FilenameConfig extends Configurable {
-  def apply(conf: Config) = {
-    implicit val _conf = conf
-    new FilenameConfig(
-      getAs[String]("new"),
-      getAs[String]("changed"),
-      getAs[String]("removed"),
-      getAs[String]("current"),
-      getAs[String]("history"),
-      getAs[String]("process"),
-      getAs[String]("meta"),
-      getAs[String]("prev")
-    )
-  }
 }
 
 case class RawSourceConfig(path: String, tables: Map[String, SourceTable]) {
@@ -228,12 +161,12 @@ object SatelliteTable extends Configurable {
 }
 
 case class LinkTable(isDelta: Boolean,
-                     entityType1: String,
-                     idFields1: List[String],
-                     idType1: String,
-                     entityType2: String,
-                     idFields2: List[String],
-                     idType2: String,
+                     srcEntityType: String,
+                     srcIdFields: List[String],
+                     srcIdType: String,
+                     dstEntityType: String,
+                     dstIdFields: List[String],
+                     dstIdType: String,
                      source: String,
                      tableName: Option[String],
                      validStartTimeField: Option[(String, String)],
@@ -264,10 +197,10 @@ object LinkTable extends Configurable {
 
 case class MappingTable(isDelta: Boolean,
                         entityType: String,
-                        idFields1: List[String],
-                        idType1: String,
-                        idFields2: List[String],
-                        idType2: String,
+                        srcIdFields: List[String],
+                        srcIdType: String,
+                        dstIdFields: List[String],
+                        dstIdType: String,
                         confidence: Double,
                         source: String,
                         tableName: Option[String],

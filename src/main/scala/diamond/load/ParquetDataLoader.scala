@@ -25,17 +25,17 @@ import org.json4s.native.Serialization
   */
 class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
-  import conf.data.filename._
+  import conf.data.filename
 
   val FILE_EXT = ".parquet"
-  val FILE_NEW = s"$newrecs"
-  val FILE_CHANGED = s"$changed$FILE_EXT"
-  val FILE_REMOVED = s"$removed$FILE_EXT"
-  val FILE_CURRENT = s"$current$FILE_EXT"
-  val FILE_HISTORY = s"$history$FILE_EXT"
-  val FILE_PROCESS = s"$process.csv"
-  val FILE_META = s"$meta.json"
-  val FILE_PREV = s"$prev$FILE_EXT"
+  val FILE_NEW = s"${filename("new")}"
+  val FILE_CHANGED = s"${filename("changed")}$FILE_EXT"
+  val FILE_REMOVED = s"${filename("removed")}$FILE_EXT"
+  val FILE_CURRENT = s"${filename("current")}$FILE_EXT"
+  val FILE_HISTORY = s"${filename("history")}$FILE_EXT"
+  val FILE_PROCESS = s"${filename("process")}.csv"
+  val FILE_META = s"${filename("meta")}.json"
+  val FILE_PREV = s"${filename("prev")}$FILE_EXT"
 
   val LAYER_ACQUISITION = conf.data.acquisition.path
 
@@ -43,32 +43,6 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
     loadAllInternal(sqlContext,
       source => sqlContext.read.load(source),
       processType, processId, userId)
-
-  def registerCustomers(df: DataFrame,
-                        isDelta: Boolean,
-                        idField: String, idType: String,
-                        source: String,
-                        processType: String,
-                        processId: String,
-                        userId: String): Unit = {
-
-    loadHub(df, isDelta, "customer", List(idField), idType, source, processType, processId, userId, newNames = Map(
-      idField -> "customer_id"
-    ))
-  }
-
-  def registerServices(df: DataFrame,
-                       isDelta: Boolean,
-                       idField: String, idType: String,
-                       source: String,
-                       processType: String,
-                       processId: String,
-                       userId: String): Unit = {
-
-    loadHub(df, isDelta, "service", List(idField), idType, source, processType, processId, userId, newNames = Map(
-      idField -> "service_id"
-    ))
-  }
 
   def loadHub(df: DataFrame,
               isDelta: Boolean,
@@ -113,26 +87,26 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
         ("current_timestamp()", s"'$META_OPEN_END_DATE_VALUE'")
       }
 
-    val inIdCols = pk.map(f => s"i.$f").mkString(",")
+    val inIdCols = pk.map("i." + _).mkString(",")
     val sql =
       s"""
-         |select hashKey(concat('$idType',$inIdCols)) as entity_id
-         |,'$entityType' as entity_type
+         |select hashKey(concat('$idType',$inIdCols)) as $META_ENTITY_ID
+         |,'$entityType' as $META_ENTITY_TYPE
          |,$inIdCols
-         |,'$idType' as id_type
-         |,current_timestamp() as start_time
-         |,'$META_OPEN_END_DATE_VALUE' as end_time
-         |,'$source' as source
-         |,'$processType' as process_type
-         |,'$processId' as process_id
-         |,current_date() as process_date
-         |,'$userId' as user_id
-         |,$validStartTimeExpr as valid_start_time
-         |,$validEndTimeExpr as valid_end_time
-         |,'$RECTYPE_INSERT' as rectype
-         |,1 as version
+         |,'$idType' as $META_ID_TYPE
+         |,current_timestamp() as $META_START_TIME
+         |,'$META_OPEN_END_DATE_VALUE' as $META_END_TIME
+         |,'$source' as $META_SOURCE
+         |,'$processType' as $META_PROCESS_TYPE
+         |,'$processId' as $META_PROCESS_ID
+         |,current_date() as $META_PROCESS_DATE
+         |,'$userId' as $META_USER_ID
+         |,$validStartTimeExpr as $META_VALID_START_TIME
+         |,$validEndTimeExpr as $META_VALID_END_TIME
+         |,'$RECTYPE_INSERT' as $META_RECTYPE
+         |,1 as $META_VERSION
          |from imported i
-      """.stripMargin
+       """.stripMargin
 
     val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
     val now = DateTime.now()
@@ -146,15 +120,15 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
       val sqlNewEntities =
         s"""
            |$sql
-           |left join existing e on $joinPredicates and e.id_type = '$idType'
-           |where e.entity_id is null
-        """.stripMargin
+           |left join existing e on $joinPredicates and e.$META_ID_TYPE = '$idType'
+           |where e.$META_ENTITY_ID is null
+         """.stripMargin
 
       val validStartExpr =
         if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
           validStartTimeExpr
         } else {
-          s"e.valid_start_time"
+          s"e.$META_VALID_START_TIME"
         }
 
       // spark (as of 1.5.2) doesn't support subqueries
@@ -162,36 +136,37 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
       val latest = sqlContext.sql(
         s"""
-           |select entity_id, max(version) as max_version
+           |select $META_ENTITY_ID, max($META_VERSION) as $META_MAX_VERSION
            |from existing
-           |group by entity_id
-        """.stripMargin)
+           |group by $META_ENTITY_ID
+         """.stripMargin)
 
       latest.registerTempTable("latest")
 
-      val exIdCols = pk.map(f => s"e.$f").mkString(",")
+      val exIdCols = pk.map("e." + _).mkString(",")
       val selectExisting =
         s"""
-           |select e.entity_id
-           |,e.entity_type
-           |,e.start_time
+           |select e.$META_ENTITY_ID
+           |,e.$META_ENTITY_TYPE
+           |,e.$META_START_TIME
            |,$exIdCols
-           |,e.id_type
-           |,current_timestamp() as end_time
-           |,'$source' as source
-           |,'$processType' as process_type
-           |,'$processId' as process_id
-           |,current_date() as process_date
-           |,'$userId' as user_id
-           |,$validStartExpr as valid_start_time
-           |,$validEndTimeExpr as valid_end_time
-           |,'$RECTYPE_DELETE' as rectype
-           |,e.version + 1 as version
+           |,e.$META_ID_TYPE
+           |,current_timestamp() as $META_END_TIME
+           |,'$source' as $META_SOURCE
+           |,'$processType' as $META_PROCESS_TYPE
+           |,'$processId' as $META_PROCESS_ID
+           |,current_date() as $META_PROCESS_DATE
+           |,'$userId' as $META_USER_ID
+           |,$validStartExpr $META_VALID_START_TIME
+           |,$validEndTimeExpr as $META_VALID_END_TIME
+           |,'$RECTYPE_DELETE' as $META_RECTYPE
+           |,e.$META_VERSION + 1 as $META_VERSION
            |from existing e
-           |inner join latest l on l.entity_id = e.entity_id and l.max_version = e.version
-        """.stripMargin
+           |inner join latest l on l.$META_ENTITY_ID = e.$META_ENTITY_ID
+           |and l.$META_MAX_VERSION = e.$META_VERSION
+         """.stripMargin
 
-      val (all, insertsCount, deletesCount) =
+      val (all: DataFrame, insertsCount: Long, deletesCount: Long) =
         if (deleteIndicatorField.isDefined) {
           val delIndField = deleteIndicatorField.get._1
           val delIndFieldVal = deleteIndicatorField.get._2.toString
@@ -202,7 +177,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
             s"""
                |$sqlNewEntities
                |and i.$delIndField <> $delIndFieldLit
-            """.stripMargin)
+             """.stripMargin)
 
           if (overwrite) {
             (inserts, inserts.count(), 0L)
@@ -212,9 +187,9 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
               s"""
                  |$selectExisting
                  |join imported i on $joinPredicates
-                 |where e.id_type = '$idType'
+                 |where e.$META_ID_TYPE = '$idType'
                  |where i.$delIndField = $delIndFieldLit
-              """.stripMargin)
+               """.stripMargin)
 
             (inserts.unionAll(deletes), inserts.count(), deletes.count())
           }
@@ -229,9 +204,9 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
               s"""
                  |$selectExisting
                  |left join imported i on $joinPredicates
-                 |where e.id_type = '$idType'
+                 |where e.$META_ID_TYPE = '$idType'
                  |and i.${pk.head} is null
-              """.stripMargin)
+               """.stripMargin)
 
             (inserts.unionAll(deletes), inserts.count(), deletes.count())
           }
@@ -242,7 +217,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
         }
 
       all.write
-        .partitionBy("id_type")
+        .partitionBy(META_ID_TYPE)
         .mode(saveMode)
         .parquet(s"$BASE_URI$path")
 
@@ -267,7 +242,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
       renamed.cache()
 
       val writer = renamed.write
-        .partitionBy("id_type")
+        .partitionBy(META_ID_TYPE)
         .mode(saveMode)
 
       writer.parquet(s"$BASE_URI$path")
@@ -364,7 +339,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
       // need to use the __current__ set or join below will match multiple rows
       val ex = sqlContext.read.load(currentPath)
-        .where("rectype <> 'D'")
+        .where(s"$META_RECTYPE <> '$RECTYPE_DELETE'")
         .cache()
 
       // with update capability, read would filter on `end_time = '9999-12-31'`
@@ -441,10 +416,10 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
       // TODO up to here
 
       val updatesNew = updates
-        .select(ex(META_VERSION).as("old_version") :: names.map(in(_)): _*)
+        .select(ex(META_VERSION).as(META_OLD_VERSION) :: names.map(in(_)): _*)
         .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
-        .withColumn(META_VERSION, col("old_version") + lit(1))
-        .drop("old_version")
+        .withColumn(META_VERSION, col(META_OLD_VERSION) + lit(1))
+        .drop(META_OLD_VERSION)
 
       if (writeChangeTables) {
         inserts.cache()
@@ -455,13 +430,13 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
       val us =
         if (overwrite) {
           val cols =
-            in(META_START_TIME).as("new_start_time") ::
+            in(META_START_TIME).as(META_NEW_START_TIME) ::
               in(META_ENTITY_ID) :: (header diff List(META_ENTITY_ID)).map(ex(_))
 
           val updatesExisting = updates
             .select(cols: _*)
             .withColumn(META_RECTYPE, lit(RECTYPE_UPDATE))
-            .withColumn(META_END_TIME, col("new_start_time"))
+            .withColumn(META_END_TIME, col(META_NEW_START_TIME))
             .select(header.map(col): _*)
 
           updatesNew.unionAll(updatesExisting)
@@ -570,8 +545,8 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
   def loadLink(df: DataFrame,
                isDelta: Boolean,
-               entityType1: String, idFields1: List[String], idType1: String,
-               entityType2: String, idFields2: List[String], idType2: String,
+               srcEntityType: String, srcIdFields: List[String], srcIdType: String,
+               dstEntityType: String, dstIdFields: List[String], dstIdType: String,
                source: String,
                processType: String,
                processId: String,
@@ -584,7 +559,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
     if (isDelta && overwrite) throw sys.error("isDelta and overwrite options are mutually exclusive")
     val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
-    val tn = if (tableName.isDefined) tableName.get else s"${entityType1.toLowerCase}_${entityType2.toLowerCase}_link"
+    val tn = if (tableName.isDefined) tableName.get else s"${srcEntityType.toLowerCase}_${dstEntityType.toLowerCase}_link"
     val path = s"/$LAYER_ACQUISITION/$tn/$FILE_HISTORY"
     val currentPath = s"$BASE_URI/$LAYER_ACQUISITION/$tn/$FILE_CURRENT"
     val sqlContext = df.sqlContext
@@ -594,8 +569,8 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
     // dedup
     val distinct = df.distinct()
     distinct.registerTempTable("imported")
-    val idCols1 = idFields1.map(f => s"i.$f").mkString(",")
-    val idCols2 = idFields2.map(f => s"i.$f").mkString(",")
+    val idCols1 = srcIdFields.map("i." + _).mkString(",")
+    val idCols2 = dstIdFields.map("i." + _).mkString(",")
     val (validStartTimeExpr, validEndTimeExpr) =
       if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
         (
@@ -608,23 +583,23 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
     val sql =
       s"""
-         |select hashKey(concat('$idType1',$idCols1)) as entity_id_1
-         |,hashKey(concat('$idType2',$idCols2)) as entity_id_2
-         |,'$entityType1' as entity_type_1
-         |,'$entityType2' as entity_type_2
-         |,current_timestamp() as start_time
-         |,'$META_OPEN_END_DATE_VALUE' as end_time
-         |,'$source' as source
-         |,'$processType' as process_type
-         |,'$processId' as process_id
-         |,current_date() as process_date
-         |,'$userId' as user_id
-         |,$validStartTimeExpr as valid_start_time
-         |,$validEndTimeExpr as valid_end_time
-         |,'$RECTYPE_INSERT' as rectype
-         |,1 as version
+         |select hashKey(concat('$srcIdType',$idCols1)) as $META_SRC_ENTITY_ID
+         |,hashKey(concat('$dstIdType',$idCols2)) as $META_DST_ENTITY_ID
+         |,'$srcEntityType' as $META_SRC_ENTITY_TYPE
+         |,'$dstEntityType' as $META_DST_ENTITY_TYPE
+         |,current_timestamp() as $META_START_TIME
+         |,'$META_OPEN_END_DATE_VALUE' as $META_END_TIME
+         |,'$source' as $META_SOURCE
+         |,'$processType' as $META_PROCESS_TYPE
+         |,'$processId' as $META_PROCESS_ID
+         |,current_date() as $META_PROCESS_DATE
+         |,'$userId' as $META_USER_ID
+         |,$validStartTimeExpr as $META_VALID_START_TIME
+         |,$validEndTimeExpr as $META_VALID_END_TIME
+         |,'$RECTYPE_INSERT' as $META_RECTYPE
+         |,1 as $META_VERSION
          |from imported i
-      """.stripMargin
+       """.stripMargin
 
     val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
     val now = DateTime.now()
@@ -635,41 +610,45 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
       val sqlNewLinks =
         s"""
            |$sql
-           |left join existing e on e.entity_id_1 = hashKey(concat('$idType1',$idCols1))
-           |and e.entity_id_2 = hashKey(concat('$idType2',$idCols2))
-           |where e.entity_id is null
-        """.stripMargin
+           |left join existing e on e.$META_SRC_ENTITY_ID = hashKey(concat('$srcIdType',$idCols1))
+           |and e.$META_DST_ENTITY_ID = hashKey(concat('$dstIdType',$idCols2))
+           |where e.$META_SRC_ENTITY_ID is null
+         """.stripMargin
 
       val validStartExpr =
         if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
           validStartTimeExpr
         } else {
-          s"e.valid_start_time"
+          s"e.$META_VALID_START_TIME"
         }
 
       val selectExisting =
         s"""
-           |select e.entity_id_1
-           |,e.entity_id_2
-           |,e.entity_type_1
-           |,e.entity_type_2
-           |,e.start_time
-           |,current_timestamp() as end_time
-           |,'$source' as source
-           |,'$processType' as process_type
-           |,'$processId' as process_id
-           |,current_date() as process_date
-           |,'$userId' as user_id
-           |,$validStartExpr as valid_start_time
-           |,$validEndTimeExpr as valid_end_time
-           |,'$RECTYPE_DELETE' as rectype
-           |,e.version + 1 as version
+           |select e.$META_SRC_ENTITY_ID
+           |,e.$META_DST_ENTITY_ID
+           |,e.$META_SRC_ENTITY_TYPE
+           |,e.$META_DST_ENTITY_TYPE
+           |,e.$META_START_TIME
+           |,current_timestamp() as $META_END_TIME
+           |,'$source' as $META_SOURCE
+           |,'$processType' as $META_PROCESS_TYPE
+           |,'$processId' as $META_PROCESS_ID
+           |,current_date() as $META_PROCESS_DATE
+           |,'$userId' as $META_USER_ID
+           |,$validStartExpr as $META_VALID_START_TIME
+           |,$validEndTimeExpr as $META_VALID_END_TIME
+           |,'$RECTYPE_DELETE' as $META_RECTYPE
+           |,e.$META_VERSION + 1 as $META_VERSION
            |from existing e
            |inner join
-           |(select entity_id, max(version) as max_version
+           |(select $META_SRC_ENTITY_ID, $META_DST_ENTITY_ID,
+           |max($META_VERSION) as $META_MAX_VERSION
            |from existing
-           |group by entity_id) e1 on e1.entity_id = e.entity_id and e1.version = e.version
-        """.stripMargin
+           |group by $META_SRC_ENTITY_ID, $META_DST_ENTITY_ID) e1
+           |on e1.$META_SRC_ENTITY_ID = e.$META_SRC_ENTITY_ID
+           |and e1.$META_DST_ENTITY_ID = e.$META_DST_ENTITY_ID
+           |and e1.$META_VERSION = e.$META_VERSION
+         """.stripMargin
 
       val (all, insertsCount, deletesCount) =
         if (deleteIndicatorField.isDefined) {
@@ -682,7 +661,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
             s"""
                |$sqlNewLinks
                |and i.$delIndField <> $delIndFieldLit
-            """.stripMargin)
+             """.stripMargin)
 
           if (overwrite) {
             (inserts, inserts.count(), 0L)
@@ -691,10 +670,10 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
             val deletes = sqlContext.sql(
               s"""
                  |$selectExisting
-                 |join imported i on e.entity_id_1 = hashKey(concat('$idType1',$idCols1))
-                 |and e.entity_id_2 = hashKey(concat('$idType2',$idCols2))
+                 |join imported i on e.$META_SRC_ENTITY_ID = hashKey(concat('$srcIdType',$idCols1))
+                 |and e.$META_DST_ENTITY_ID = hashKey(concat('$dstIdType',$idCols2))
                  |where i.$delIndField = $delIndFieldLit
-              """.stripMargin)
+               """.stripMargin)
 
             (inserts.unionAll(deletes), inserts.count(), deletes.count())
           }
@@ -708,10 +687,10 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
             val deletes = sqlContext.sql(
               s"""
                  |$selectExisting
-                 |left join imported i on e.entity_id_1 = hashKey(concat('$idType1',$idCols1))
-                 |and e.entity_id_2 = hashKey(concat('$idType2',$idCols2))
-                 |where i.entity_id is null
-              """.stripMargin)
+                 |left join imported i on e.$META_SRC_ENTITY_ID = hashKey(concat('$srcIdType',$idCols1))
+                 |and e.$META_DST_ENTITY_ID = hashKey(concat('$dstIdType',$idCols2))
+                 |where i.$META_SRC_ENTITY_ID is null
+               """.stripMargin)
 
             (inserts.unionAll(deletes), inserts.count(), deletes.count())
           }
@@ -722,13 +701,13 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
         }
 
       all.write
-        //.partitionBy("entity_type_1", "entity_type_2")
+        //.partitionBy(META_SRC_ENTITY_TYPE, META_DST_ENTITY_TYPE)
         .mode(saveMode)
         .parquet(s"$BASE_URI$path")
 
       // write snapshot
       val latest: RDD[Row] = df
-        .map(row => ((row.getAs[String]("entity_id_1"), row.getAs[String]("entity_id_2")), row))
+        .map(row => ((row.getAs[String](META_SRC_ENTITY_ID), row.getAs[String](META_DST_ENTITY_ID)), row))
         .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
         .map(_._2)
 
@@ -748,7 +727,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
       val links = sqlContext.sql(sql).cache()
 
       val writer = links.write
-        //.partitionBy("entity_type_1", "entity_type_2")
+        //.partitionBy(META_SRC_ENTITY_TYPE, META_DST_ENTITY_TYPE)
         .mode(saveMode)
 
       writer.parquet(s"$BASE_URI$path")
@@ -759,12 +738,12 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
         0, 0, now, now)
 
       val metadata = Map(
-        "entityType1" -> entityType1,
-        "idFields1" -> idFields1,
-        "idType1" -> idType1,
-        "entityType2" -> entityType2,
-        "idFields2" -> idFields2,
-        "idType2" -> idType2,
+        "entityType1" -> srcEntityType,
+        "idFields1" -> srcIdFields,
+        "idType1" -> srcIdType,
+        "entityType2" -> dstEntityType,
+        "idFields2" -> dstIdFields,
+        "idType2" -> dstIdType,
         "validStartTimeField" -> validStartTimeField,
         "validEndTimeField" -> validEndTimeField,
         "deleteIndicatorField" -> deleteIndicatorField
@@ -778,8 +757,8 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
   def loadMapping(df: DataFrame,
                   isDelta: Boolean,
                   entityType: String,
-                  idFields1: List[String], idType1: String,
-                  idFields2: List[String], idType2: String,
+                  srcIdFields: List[String], srcIdType: String,
+                  dstIdFields: List[String], dstIdType: String,
                   confidence: Double,
                   source: String,
                   processType: String,
@@ -803,8 +782,8 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
     // dedup
     val distinct = df.distinct()
     distinct.registerTempTable("imported")
-    val idCols1 = idFields1.map(f => s"i.$f").mkString(",")
-    val idCols2 = idFields2.map(f => s"i.$f").mkString(",")
+    val idCols1 = srcIdFields.map("i." + _).mkString(",")
+    val idCols2 = dstIdFields.map("i." + _).mkString(",")
     val (validStartTimeExpr, validEndTimeExpr) =
       if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
         (
@@ -817,25 +796,25 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
     val sql =
       s"""
-         |select hashKey(concat('$idType1',$idCols1)) as entity_id_1
-         |,hashKey(concat('$idType2',$idCols2)) as entity_id_2
-         |,'$entityType' as entity_type
-         |,'$idType1' as id_type_1
-         |,'$idType2' as id_type_2
-         |,$confidence as confidence
-         |,current_timestamp() as start_time
-         |,'$META_OPEN_END_DATE_VALUE' as end_time
-         |,'$source' as source
-         |,'$processType' as process_type
-         |,'$processId' as process_id
-         |,current_date() as process_date
-         |,'$userId' as user_id
-         |,$validStartTimeExpr as valid_start_time
-         |,$validEndTimeExpr as valid_end_time
-         |,'$RECTYPE_INSERT' as rectype
-         |,1 as version
+         |select hashKey(concat('$srcIdType',$idCols1)) as $META_SRC_ENTITY_ID
+         |,hashKey(concat('$dstIdType',$idCols2)) as $META_DST_ENTITY_ID
+         |,'$entityType' as $META_ENTITY_TYPE
+         |,'$srcIdType' as $META_SRC_ID_TYPE
+         |,'$dstIdType' as $META_DST_ID_TYPE
+         |,$confidence as $META_CONFIDENCE
+         |,current_timestamp() as $META_START_TIME
+         |,'$META_OPEN_END_DATE_VALUE' as $META_END_TIME
+         |,'$source' as $META_SOURCE
+         |,'$processType' as $META_PROCESS_TYPE
+         |,'$processId' as $META_PROCESS_ID
+         |,current_date() as $META_PROCESS_DATE
+         |,'$userId' as $META_USER_ID
+         |,$validStartTimeExpr as $META_VALID_START_TIME
+         |,$validEndTimeExpr as $META_VALID_END_TIME
+         |,'$RECTYPE_INSERT' as $META_RECTYPE
+         |,1 as $META_VERSION
          |from imported i
-      """.stripMargin
+       """.stripMargin
 
     val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
     val now = DateTime.now()
@@ -846,43 +825,47 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
       val sqlNewLinks =
         s"""
            |$sql
-           |left join existing e on e.entity_id_1 = hashKey(concat('$idType1',$idCols1))
-           |and e.entity_id_2 = hashKey(concat('$idType2',$idCols2))
-           |where e.entity_id_1 is null
-        """.stripMargin
+           |left join existing e on e.$META_SRC_ENTITY_ID = hashKey(concat('$srcIdType',$idCols1))
+           |and e.$META_DST_ENTITY_ID = hashKey(concat('$dstIdType',$idCols2))
+           |where e.$META_SRC_ENTITY_ID is null
+         """.stripMargin
 
       val validStartExpr =
         if (validStartTimeField.isDefined && validEndTimeField.isDefined) {
           validStartTimeExpr
         } else {
-          s"e.valid_start_time"
+          s"e.$META_VALID_START_TIME"
         }
 
       val selectExisting =
         s"""
-           |select e.entity_id_1
-           |,e.entity_id_2
-           |,e.entity_type
-           |,e.id_type_1
-           |,e.id_type_2
-           |,e.confidence
-           |,e.start_time
-           |,current_timestamp() as end_time
-           |,'$source' as source
-           |,'$processType' as process_type
-           |,'$processId' as process_id
-           |,current_date() as process_date
-           |,'$userId' as user_id
-           |,$validStartExpr as valid_start_time
-           |,$validEndTimeExpr as valid_end_time
-           |,'$RECTYPE_DELETE' as rectype
-           |,e.version + 1 as version
+           |select e.$META_SRC_ENTITY_ID
+           |,e.$META_DST_ENTITY_ID
+           |,e.$META_ENTITY_TYPE
+           |,e.$META_SRC_ID_TYPE
+           |,e.$META_DST_ID_TYPE
+           |,e.$META_CONFIDENCE
+           |,e.$META_START_TIME
+           |,current_timestamp() as $META_END_TIME
+           |,'$source' as $META_SOURCE
+           |,'$processType' as $META_PROCESS_TYPE
+           |,'$processId' as $META_PROCESS_ID
+           |,current_date() as $META_PROCESS_DATE
+           |,'$userId' as $META_USER_ID
+           |,$validStartExpr as $META_VALID_START_TIME
+           |,$validEndTimeExpr as $META_VALID_END_TIME
+           |,'$RECTYPE_DELETE' as $META_RECTYPE
+           |,e.$META_VERSION + 1 as $META_VERSION
            |from existing e
            |inner join
-           |(select entity_id, max(version) as max_version
+           |(select $META_SRC_ENTITY_ID, $META_DST_ENTITY_ID,
+           |max($META_VERSION) as $META_MAX_VERSION
            |from existing
-           |group by entity_id) e1 on e1.entity_id = e.entity_id and e1.version = e.version
-        """.stripMargin
+           |group by $META_SRC_ENTITY_ID, $META_DST_ENTITY_ID) e1
+           |on e1.$META_SRC_ENTITY_ID = e.$META_SRC_ENTITY_ID
+           |and e1.$META_DST_ENTITY_ID = e.$META_DST_ENTITY_ID
+           |and e1.$META_VERSION = e.$META_VERSION
+         """.stripMargin
 
       val (all, insertsCount, deletesCount) =
         if (deleteIndicatorField.isDefined) {
@@ -895,7 +878,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
             s"""
                |$sqlNewLinks
                |and i.$delIndField <> $delIndFieldLit
-            """.stripMargin)
+             """.stripMargin)
 
           if (overwrite) {
             (inserts, inserts.count(), 0L)
@@ -904,10 +887,10 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
             val deletes = sqlContext.sql(
               s"""
                  |$selectExisting
-                 |join imported i on e.entity_id_1 = hashKey(concat('$idType1',$idCols1))
-                 |and e.entity_id_2 = hashKey(concat('$idType2',$idCols2))
+                 |join imported i on e.$META_SRC_ENTITY_ID = hashKey(concat('$srcIdType',$idCols1))
+                 |and e.$META_DST_ENTITY_ID = hashKey(concat('$dstIdType',$idCols2))
                  |where i.$delIndField = $delIndFieldLit
-              """.stripMargin)
+               """.stripMargin)
 
             (inserts.unionAll(deletes), inserts.count(), deletes.count())
           }
@@ -921,10 +904,10 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
             val deletes = sqlContext.sql(
               s"""
                  |$selectExisting
-                 |left join imported i on e.entity_id_1 = hashKey(concat('$idType1',$idCols1))
-                 |and e.entity_id_2 = hashKey(concat('$idType2',$idCols2))
-                 |where i.entity_id is null
-              """.stripMargin)
+                 |left join imported i on e.$META_SRC_ENTITY_ID = hashKey(concat('$srcIdType',$idCols1))
+                 |and e.$META_DST_ENTITY_ID = hashKey(concat('$dstIdType',$idCols2))
+                 |where i.e$META_SRC_ENTITY_ID is null
+               """.stripMargin)
 
             (inserts.unionAll(deletes), inserts.count(), deletes.count())
           }
@@ -935,7 +918,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
         }
 
       all.write
-        //        .partitionBy("id_type_1", "id_type_2")
+        //        .partitionBy(META_SRC_ID_TYPE, META_DST_ID_TYPE)
         .mode(saveMode)
         .parquet(s"$BASE_URI$path")
 
@@ -956,7 +939,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
       val mapping = sqlContext.sql(sql).cache()
 
       val writer = mapping.write
-        //        .partitionBy("id_type_1", "id_type_2")
+        //        .partitionBy(META_SRC_ID_TYPE, META_DST_ID_TYPE)
         .mode(saveMode)
 
       writer.parquet(s"$BASE_URI$path")
@@ -968,10 +951,10 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
       val metadata = Map(
         "entityType" -> entityType,
-        "idFields1" -> idFields1,
-        "idType1" -> idType1,
-        "idFields2" -> idFields2,
-        "idType2" -> idType2,
+        "idFields1" -> srcIdFields,
+        "idType1" -> srcIdType,
+        "idFields2" -> dstIdFields,
+        "idType2" -> dstIdType,
         "validStartTimeField" -> validStartTimeField,
         "validEndTimeField" -> validEndTimeField,
         "deleteIndicatorField" -> deleteIndicatorField
@@ -1012,7 +995,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
     val tn = if (tableName.isDefined) tableName.get else s"${entityType.toLowerCase}_mapping"
     val df = sqlContext.read.load(s"$BASE_URI/$LAYER_ACQUISITION/$tn$FILE_EXT")
     val latest: RDD[Row] = df
-      .map(row => ((row.getAs[String]("entity_id_1"), row.getAs[String]("entity_id_2")), row))
+      .map(row => ((row.getAs[String](META_SRC_ENTITY_ID), row.getAs[String](META_DST_ENTITY_ID)), row))
       .reduceByKey((a, b) => if (b.getAs[Int](META_VERSION) > a.getAs[Int](META_VERSION)) b else a)
       .map(_._2)
 

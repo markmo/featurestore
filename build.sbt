@@ -5,7 +5,7 @@ version := "0.1"
 scalaVersion := "2.10.6"
 
 resolvers ++= Seq(
-  Resolver.sonatypeRepo("public"),
+  Resolver.sonatypeRepo("releases"),
   DefaultMavenRepository
 //  "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/"
 //  "Akka Repository" at "http://repo.akka.io/releases/",
@@ -38,6 +38,7 @@ libraryDependencies ++= Seq(
 //  "com.github.melrief" %% "pureconfig" % "0.1.5",
 //  compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
   "org.json4s" %% "json4s-native" % "3.3.0",
+//  "com.osinka.i18n" %% "scala-i18n" % "1.0.0",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   "ai.h2o" % "sparkling-water-core_2.10" % "1.5.2"
     exclude("org.apache.spark", "spark-core_2.10")

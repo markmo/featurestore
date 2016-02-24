@@ -41,27 +41,39 @@ trait DataLoader extends Serializable {
 
   import conf.data._
 
-  val META_ENTITY_ID = meta.entityId
-  val META_START_TIME = meta.startTime
-  val META_END_TIME = meta.endTime
-  val META_SOURCE = meta.source
-  val META_PROCESS_TYPE = meta.processType
-  val META_PROCESS_ID = meta.processId
-  val META_PROCESS_DATE = meta.processDate
-  val META_USER_ID = meta.userId
-  val META_HASHED_VALUE = meta.hashedValue
-  val META_RECTYPE = meta.rectype
-  val META_VERSION = meta.version
-  val META_OPEN_END_DATE_VALUE = meta.openEndDateValue
-  val META_VALID_START_TIME_FIELD = meta.validStartTimeField
-  val META_VALID_END_TIME_FIELD = meta.validEndTimeField
-  val META_VALID_START_TIME = meta.validStartTime
-  val META_VALID_END_TIME = meta.validEndTime
-  val META_DELETE_INDICATOR_FIELD = meta.deleteIndicatorField
+  val META_ENTITY_ID = meta("entity-id")
+  val META_SRC_ENTITY_ID = meta("src-entity-id")
+  val META_DST_ENTITY_ID = meta("dst-entity-id")
+  val META_ENTITY_TYPE = meta("entity-type")
+  val META_SRC_ENTITY_TYPE = meta("src-entity-type")
+  val META_DST_ENTITY_TYPE = meta("dst-entity-type")
+  val META_ID_TYPE = meta("id-type")
+  val META_SRC_ID_TYPE = meta("src-id-type")
+  val META_DST_ID_TYPE = meta("dst-id-type")
+  val META_CONFIDENCE = meta("confidence")
+  val META_START_TIME = meta("start-time")
+  val META_NEW_START_TIME = meta("new-start-time")
+  val META_END_TIME = meta("end-time")
+  val META_SOURCE = meta("source")
+  val META_PROCESS_TYPE = meta("process-type")
+  val META_PROCESS_ID = meta("process-id")
+  val META_PROCESS_DATE = meta("process-date")
+  val META_USER_ID = meta("user-id")
+  val META_HASHED_VALUE = meta("hashed-value")
+  val META_RECTYPE = meta("rectype")
+  val META_VERSION = meta("version")
+  val META_MAX_VERSION = meta("max-version")
+  val META_OLD_VERSION = meta("old-version")
+  val META_OPEN_END_DATE_VALUE = meta("open-end-date-value")
+  val META_VALID_START_TIME_FIELD = meta("valid-start-time-field")
+  val META_VALID_END_TIME_FIELD = meta("valid-end-time-field")
+  val META_VALID_START_TIME = meta("valid-start-time")
+  val META_VALID_END_TIME = meta("valid-end-time")
+  val META_DELETE_INDICATOR_FIELD = meta("delete-indicator-field")
 
-  val RECTYPE_INSERT = rectype.insert
-  val RECTYPE_UPDATE = rectype.update
-  val RECTYPE_DELETE = rectype.delete
+  val RECTYPE_INSERT = rectype("insert")
+  val RECTYPE_UPDATE = rectype("update")
+  val RECTYPE_DELETE = rectype("delete")
 
   val BASE_URI = baseURI
 
@@ -120,8 +132,8 @@ trait DataLoader extends Serializable {
       import lnk._
       val df = read(source)
       loadLink(df, isDelta,
-        entityType1, idFields1, idType1,
-        entityType2, idFields2, idType2,
+        srcEntityType, srcIdFields, srcIdType,
+        dstEntityType, dstIdFields, dstIdType,
         source, processType, processId, userId, tableName,
         validStartTimeField, validEndTimeField, deleteIndicatorField,
         overwrite)
@@ -131,8 +143,8 @@ trait DataLoader extends Serializable {
       import map._
       val df = read(source)
       loadMapping(df, isDelta, entityType,
-        idFields1, idType1,
-        idFields2, idType2,
+        srcIdFields, srcIdType,
+        dstIdFields, dstIdType,
         confidence, source,
         processType, processId, userId, tableName,
         validStartTimeField, validEndTimeField, deleteIndicatorField,
@@ -146,7 +158,12 @@ trait DataLoader extends Serializable {
                         source: String,
                         processType: String,
                         processId: String,
-                        userId: String): Unit
+                        userId: String): Unit = {
+
+    loadHub(df, isDelta, "customer", List(idField), idType, source, processType, processId, userId, newNames = Map(
+      idField -> "customer_id"
+    ))
+  }
 
   def registerServices(df: DataFrame,
                        isDelta: Boolean,
@@ -154,7 +171,12 @@ trait DataLoader extends Serializable {
                        source: String,
                        processType: String,
                        processId: String,
-                       userId: String): Unit
+                       userId: String): Unit = {
+
+    loadHub(df, isDelta, "service", List(idField), idType, source, processType, processId, userId, newNames = Map(
+      idField -> "service_id"
+    ))
+  }
 
   def loadHub(df: DataFrame,
               isDelta: Boolean,
@@ -223,8 +245,8 @@ trait DataLoader extends Serializable {
 
   def loadLink(df: DataFrame,
                isDelta: Boolean,
-               entityType1: String, idFields1: List[String], idType1: String,
-               entityType2: String, idFields2: List[String], idType2: String,
+               srcEntityType: String, srcIdFields: List[String], srcIdType: String,
+               dstEntityType: String, dstIdFields: List[String], dstIdType: String,
                source: String,
                processType: String,
                processId: String,
@@ -238,8 +260,8 @@ trait DataLoader extends Serializable {
   def loadMapping(df: DataFrame,
                   isDelta: Boolean,
                   entityType: String,
-                  idFields1: List[String], idType1: String,
-                  idFields2: List[String], idType2: String,
+                  srcIdFields: List[String], srcIdType: String,
+                  dstIdFields: List[String], dstIdType: String,
                   confidence: Double,
                   source: String,
                   processType: String,

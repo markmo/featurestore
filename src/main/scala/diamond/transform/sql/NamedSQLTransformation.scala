@@ -5,6 +5,10 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
 
 /**
   * Created by markmo on 16/12/2015.
+  *
+  * @param propsPath String path to SQL properties file (relative to classpath)
+  * @param name String name of query
+  * @param params Map[String, String] dynamic variables to pass into query
   */
 class NamedSQLTransformation(propsPath: String, name: String, params: Map[String, String]) extends Serializable {
 

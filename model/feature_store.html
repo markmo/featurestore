@@ -456,9 +456,9 @@
 <td class="tdTableHeading tdLogicalColName">Logical Column Name</td><td class="tdTableHeading tdPhysicalColName">Physical Column Name</td><td class="tdTableHeading tdDataType">Type</td><td class="tdTableHeading tdPkFlag">PK</td><td class="tdTableHeading tdNullFlag">Nullable</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">entity_id_1 (PK)
+<td class="tdTableDefinition">src_entity_id (PK)
                 &nbsp;(<a href="#hub<customer>">FK</a>)
-              </td><td class="tdTableDefinition">entity_id_1</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+              </td><td class="tdTableDefinition">src_entity_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr>
 <td colspan="4">
@@ -466,9 +466,9 @@
 </td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">entity_id_2 (PK)
+<td class="tdTableDefinition">dst_entity_id (PK)
                 &nbsp;(<a href="#hub<service>">FK</a>)
-              </td><td class="tdTableDefinition">entity_id_2</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+              </td><td class="tdTableDefinition">dst_entity_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr>
 <td colspan="4">
@@ -484,7 +484,7 @@
 </td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">entity_type_1</td><td class="tdTableDefinition">entity_type_1</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">src_entity_type</td><td class="tdTableDefinition">src_entity_type</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr>
 <td colspan="4">
@@ -492,7 +492,7 @@
 </td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">entity_type_2</td><td class="tdTableDefinition">entity_type_2</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">dst_entity_type</td><td class="tdTableDefinition">dst_entity_type</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr>
 <td colspan="4">
@@ -534,9 +534,9 @@
 <p class="subTitle">References</p>
 <ul>
 <li>
-<a href="#hub<customer>">hub&lt;customer&gt;</a> through (entity_id_1)</li>
+<a href="#hub<customer>">hub&lt;customer&gt;</a> through (src_entity_id)</li>
 <li>
-<a href="#hub<service>">hub&lt;service&gt;</a> through (entity_id_2)</li>
+<a href="#hub<service>">hub&lt;service&gt;</a> through (dst_entity_id)</li>
 </ul>
 </div>
 </div>
@@ -553,10 +553,10 @@
 <td class="tdTableHeading tdLogicalColName">Logical Column Name</td><td class="tdTableHeading tdPhysicalColName">Physical Column Name</td><td class="tdTableHeading tdDataType">Type</td><td class="tdTableHeading tdPkFlag">PK</td><td class="tdTableHeading tdNullFlag">Nullable</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">entity_id_1 (PK)</td><td class="tdTableDefinition">entity_id_1</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">src_entity_id (PK)</td><td class="tdTableDefinition">src_entity_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">entity_id_2 (PK)</td><td class="tdTableDefinition">entity_id_2</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">dst_entity_id (PK)</td><td class="tdTableDefinition">dst_entity_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">version (PK)</td><td class="tdTableDefinition">version</td><td class="tdTableDefinition">INTEGER</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
@@ -565,10 +565,10 @@
 <td class="tdTableDefinition">entity_type</td><td class="tdTableDefinition">entity_type</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">id_type_1</td><td class="tdTableDefinition">id_type_1</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">src_id_type</td><td class="tdTableDefinition">src_id_type</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">id_type_2</td><td class="tdTableDefinition">id_type_2</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">dst_id_type</td><td class="tdTableDefinition">dst_id_type</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">confidence</td><td class="tdTableDefinition">confidence</td><td class="tdTableDefinition">DOUBLE</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
@@ -619,10 +619,10 @@
 <td class="tdTableHeading tdLogicalColName">Logical Column Name</td><td class="tdTableHeading tdPhysicalColName">Physical Column Name</td><td class="tdTableHeading tdDataType">Type</td><td class="tdTableHeading tdPkFlag">PK</td><td class="tdTableHeading tdNullFlag">Nullable</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">entity_id_1 (PK)</td><td class="tdTableDefinition">entity_id_1</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">src_entity_id (PK)</td><td class="tdTableDefinition">src_entity_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">entity_id_2 (PK)</td><td class="tdTableDefinition">entity_id_2</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">dst_entity_id (PK)</td><td class="tdTableDefinition">dst_entity_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">version (PK)</td><td class="tdTableDefinition">version</td><td class="tdTableDefinition">INTEGER</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
@@ -631,10 +631,10 @@
 <td class="tdTableDefinition">entity_type</td><td class="tdTableDefinition">entity_type</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">id_type_1</td><td class="tdTableDefinition">id_type_1</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">src_id_type</td><td class="tdTableDefinition">src_id_type</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">id_type_2</td><td class="tdTableDefinition">id_type_2</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">dst_id_type</td><td class="tdTableDefinition">dst_id_type</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">confidence</td><td class="tdTableDefinition">confidence</td><td class="tdTableDefinition">DOUBLE</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
