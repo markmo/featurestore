@@ -33,9 +33,9 @@ user.conf
       entity-id = 2017512160
     }
 
-Transformations are organised into transformation objects to facilitate dependency management and error handling and reporting. See [Main README]().
+Transformations are organised into transformation objects to facilitate dependency management and error handling and reporting. See [Main README](https://github.com/markmo/featurestore/blob/master/README.md).
 
-See [/src/test/scala/ExecuteSQLSpec]()
+See [/src/test/scala/ExecuteSQLSpec](https://github.com/markmo/featurestore/blob/master/src/test/scala/ExecuteSQLSpec.scala)
 
     val rawDF =
       sqlContext.read
