@@ -27,7 +27,7 @@ class WorkflowSpec extends UnitSpec {
   val inputSchema = StructType(
     StructField("entityIdType", StringType) ::
     StructField("entityId", StringType) ::
-    StructField("attribute", StringType) ::
+    StructField("eventType", StringType) ::
     StructField("ts", StringType) ::
     StructField("value", StringType, nullable = true) ::
     StructField("properties", StringType, nullable = true) ::
@@ -69,7 +69,7 @@ class WorkflowSpec extends UnitSpec {
       Row(
         f("entityIdType"),
         f("entityId"),
-        s"Hello ${f("attribute")}",
+        s"Hello ${f("eventType")}",
         f("ts"),
         f("value"),
         f("properties"),
@@ -95,7 +95,7 @@ class WorkflowSpec extends UnitSpec {
     Row(
       f("entityIdType"),
       f("entityId"),
-      s"Hello ${f("attribute")}",
+      s"Hello ${f("eventType")}",
       f("ts"),
       f("value"),
       f("properties"),
@@ -261,6 +261,7 @@ class WorkflowSpec extends UnitSpec {
     ctx("in_path", path)
     ctx("schema", inputSchema)
     ctx("out_path", out.toString)
+    ctx("errorThreshold", 1)
 
     val pipeline = new RowTransformationPipeline("test")
     pipeline.addTransformations(AddFiveTransform, HelloTransform, WorldTransform, FiftyTransform)
@@ -323,14 +324,21 @@ class WorkflowSpec extends UnitSpec {
     val events: RDD[Event] = rawDF.map { row =>
       Event(
         hashKey(row.getAs[String]("entityIdType") + row.getAs[String]("entityId")),
-        row.getAs[String]("attribute"),
+        row.getAs[String]("eventType"),
         convertStringToDate(row.getAs[String]("ts"), "yyyy-MM-dd"),
         "test",
+        None,
+        None,
         row.getAs[String]("value"),
         row.getAs[String]("properties"),
+        cal.getTime,
+        cal.getTime,
         "events_sample.csv",
         "test",
+        "test",
         cal.getTime,
+        "test",
+        "I",
         1
       )
     }
@@ -413,7 +421,7 @@ class WorkflowSpec extends UnitSpec {
           Row(
             f("entityIdType"),
             f("entityId"),
-            s"Hello ${f("attribute")}",
+            s"Hello ${f("eventType")}",
             f("ts"),
             f("value"),
             f("properties"),

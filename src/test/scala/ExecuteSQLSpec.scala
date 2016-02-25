@@ -18,7 +18,7 @@ class ExecuteSQLSpec extends UnitSpec {
   val inputSchema = StructType(
     StructField("entityIdType", StringType) ::
     StructField("entityId", StringType) ::
-    StructField("attribute", StringType) ::
+    StructField("eventType", StringType) ::
     StructField("ts", StringType) ::
     StructField("value", StringType, nullable = true) ::
     StructField("properties", StringType, nullable = true) ::

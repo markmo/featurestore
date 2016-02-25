@@ -26,7 +26,6 @@ The high-level data processing flow will look like:
                         --> Wide Tables (Consumption Layer)
 
 ![Data Layers](../../../../../images/data_layers.png)
-                        
 
 <table>
     <tr>

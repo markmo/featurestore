@@ -9,9 +9,14 @@ import java.util.Date
   * @param namespace String logical grouping
   * @param value String value pertinent to the fact, e.g. 9
   * @param properties String JSON document of related information
+  * @param startTime Date
+  * @param endTime Date
   * @param source String source system
+  * @param processType String
   * @param processId String id of process that created fact record
-  * @param processTime Date datetime of record creation
+  * @param processDate Date datetime of record creation
+  * @param userId String
+  * @param rectype String
   * @param version Int version number, incremented for changed/fixed record
   *
   * Created by markmo on 30/11/2015.
@@ -22,9 +27,14 @@ case class Fact(entity: String,
                 namespace: String,
                 value: String,
                 properties: String,
+                startTime: Date,
+                endTime: Date,
                 source: String,
+                processType: String,
                 processId: String,
-                processTime: Date,
+                processDate: Date,
+                userId: String,
+                rectype: String,
                 version: Int      // trial - processTime could be used instead
                ) extends Ordered[Fact] with Serializable {
 

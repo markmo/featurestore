@@ -30,7 +30,7 @@ object PivotFunctions {
             evs
               // group all events for entity by type
               // returns Map(type -> List((type, event)))
-              .map(ev => (ev.attribute, ev))
+              .map(ev => (ev.eventType, ev))
               .groupBy(_._1)
 
               // return the event in the first tuple
@@ -40,7 +40,7 @@ object PivotFunctions {
               }
 
           // create a map of the features that an entity has
-          val featureMap = latestEvents.map(ev => (ev.attribute, ev.value)).toMap
+          val featureMap = latestEvents.map(ev => (ev.eventType, ev.value)).toMap
 
           // iterate through registered events finding a matching value
           // or null if not found
@@ -64,7 +64,7 @@ object PivotFunctions {
         case (key, evs) =>
           // group all events for entity by type
           // returns Map(type -> List((type, event)))
-          val grouped = evs.map(ev => (ev.attribute, ev)).groupBy(_._1)
+          val grouped = evs.map(ev => (ev.eventType, ev)).groupBy(_._1)
           if (grouped.contains(attribute)) {
             val syncTime = grouped(attribute).map(_._2).toList.sorted.head.ts
             val chordEvents =
@@ -78,7 +78,7 @@ object PivotFunctions {
                 }
 
             // create a map of the features that an entity has
-            val featureMap = chordEvents.map(ev => (ev.attribute, ev.value)).toMap
+            val featureMap = chordEvents.map(ev => (ev.eventType, ev.value)).toMap
 
             // iterate through registered events finding a matching value
             // or null if not found

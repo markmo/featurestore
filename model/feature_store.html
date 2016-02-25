@@ -107,6 +107,9 @@
 <a href="#hub<service>">hub&lt;service&gt;</a>
 </li>
 <li>
+<a href="#journey">journey</a>
+</li>
+<li>
 <a href="#link<customer_service>">link&lt;customer_service&gt;</a>
 </li>
 <li>
@@ -120,6 +123,15 @@
 </li>
 <li>
 <a href="#satellite">satellite</a>
+</li>
+<li>
+<a href="#stage">stage</a>
+</li>
+<li>
+<a href="#stage_task">stage_task</a>
+</li>
+<li>
+<a href="#tasks<customer>">tasks&lt;customer&gt;</a>
 </li>
 </ul>
 <div class="tableNameHeading">
@@ -138,13 +150,21 @@
 <td class="tdTableDefinition">entity_id (PK)</td><td class="tdTableDefinition">entity_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">attribute (PK)</td><td class="tdTableDefinition">attribute</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">event_type (PK)</td><td class="tdTableDefinition">event_type</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">event_time (PK)</td><td class="tdTableDefinition">event_time</td><td class="tdTableDefinition">TIMESTAMP</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">version (PK)</td><td class="tdTableDefinition">version</td><td class="tdTableDefinition">INTEGER</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">namespace</td><td class="tdTableDefinition">namespace</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">task_id
+                &nbsp;(<a href="#tasks<customer>">FK</a>)
+              </td><td class="tdTableDefinition">task_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">session_id</td><td class="tdTableDefinition">session_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
@@ -180,7 +200,13 @@
 <td class="tdTableDefinition">rectype</td><td class="tdTableDefinition">rectype</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 </table>
-<div class="references"></div>
+<div class="references">
+<p class="subTitle">References</p>
+<ul>
+<li>
+<a href="#tasks<customer>">tasks&lt;customer&gt;</a> through (task_id)</li>
+</ul>
+</div>
 </div>
 <div class="tableNameHeading">
 <h1>events&lt;service_type&gt;<a name="events<service_type>"></a>
@@ -198,13 +224,16 @@
 <td class="tdTableDefinition">entity_id (PK)</td><td class="tdTableDefinition">entity_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
-<td class="tdTableDefinition">attribute (PK)</td><td class="tdTableDefinition">attribute</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+<td class="tdTableDefinition">event_type (PK)</td><td class="tdTableDefinition">event_type</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">event_time (PK)</td><td class="tdTableDefinition">event_time</td><td class="tdTableDefinition">TIMESTAMP</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">version (PK)</td><td class="tdTableDefinition">version</td><td class="tdTableDefinition">INTEGER</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">namespace</td><td class="tdTableDefinition">namespace</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
 </tr>
 <tr valign="top">
 <td class="tdTableDefinition">session_id</td><td class="tdTableDefinition">session_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap></td>
@@ -448,6 +477,33 @@
 <ul>
 <li>
 <a href="#link<customer_service>">link&lt;customer_service&gt;</a> referencing (entity_id)</li>
+</ul>
+</div>
+</div>
+<div class="tableNameHeading">
+<h1>journey<a name="journey"></a>
+</h1>
+<h2>
+      (Physical Name: journey)
+      </h2>
+</div>
+<div class="table">
+<table class="tableDefinition" width="100%">
+<tr>
+<td class="tdTableHeading tdLogicalColName">Logical Column Name</td><td class="tdTableHeading tdPhysicalColName">Physical Column Name</td><td class="tdTableHeading tdDataType">Type</td><td class="tdTableHeading tdPkFlag">PK</td><td class="tdTableHeading tdNullFlag">Nullable</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">journey_id (PK)</td><td class="tdTableDefinition">journey_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">journey_name</td><td class="tdTableDefinition">journey_name</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+</table>
+<div class="references">
+<p class="subTitle">Referenced By</p>
+<ul>
+<li>
+<a href="#stage">stage</a> referencing (journey_id)</li>
 </ul>
 </div>
 </div>
@@ -851,6 +907,105 @@
 </tr>
 </table>
 <div class="references"></div>
+</div>
+<div class="tableNameHeading">
+<h1>stage<a name="stage"></a>
+</h1>
+<h2>
+      (Physical Name: stage)
+      </h2>
+</div>
+<div class="table">
+<table class="tableDefinition" width="100%">
+<tr>
+<td class="tdTableHeading tdLogicalColName">Logical Column Name</td><td class="tdTableHeading tdPhysicalColName">Physical Column Name</td><td class="tdTableHeading tdDataType">Type</td><td class="tdTableHeading tdPkFlag">PK</td><td class="tdTableHeading tdNullFlag">Nullable</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">stage_id (PK)</td><td class="tdTableDefinition">stage_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">stage_name</td><td class="tdTableDefinition">stage_name</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">journey_id
+                &nbsp;(<a href="#journey">FK</a>)
+              </td><td class="tdTableDefinition">journey_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+</table>
+<div class="references">
+<p class="subTitle">References</p>
+<ul>
+<li>
+<a href="#journey">journey</a> through (journey_id)</li>
+</ul>
+<p class="subTitle">Referenced By</p>
+<ul>
+<li>
+<a href="#stage_task">stage_task</a> referencing (stage_id)</li>
+</ul>
+</div>
+</div>
+<div class="tableNameHeading">
+<h1>stage_task<a name="stage_task"></a>
+</h1>
+<h2>
+      (Physical Name: stage_task)
+      </h2>
+</div>
+<div class="table">
+<table class="tableDefinition" width="100%">
+<tr>
+<td class="tdTableHeading tdLogicalColName">Logical Column Name</td><td class="tdTableHeading tdPhysicalColName">Physical Column Name</td><td class="tdTableHeading tdDataType">Type</td><td class="tdTableHeading tdPkFlag">PK</td><td class="tdTableHeading tdNullFlag">Nullable</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">stage_id (PK)
+                &nbsp;(<a href="#stage">FK</a>)
+              </td><td class="tdTableDefinition">stage_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">task_id (PK)
+                &nbsp;(<a href="#tasks<customer>">FK</a>)
+              </td><td class="tdTableDefinition">task_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+</table>
+<div class="references">
+<p class="subTitle">References</p>
+<ul>
+<li>
+<a href="#tasks<customer>">tasks&lt;customer&gt;</a> through (task_id)</li>
+<li>
+<a href="#stage">stage</a> through (stage_id)</li>
+</ul>
+</div>
+</div>
+<div class="tableNameHeading">
+<h1>tasks&lt;customer&gt;<a name="tasks<customer>"></a>
+</h1>
+<h2>
+      (Physical Name: tasks&lt;customer&gt;)
+      </h2>
+</div>
+<div class="table">
+<table class="tableDefinition" width="100%">
+<tr>
+<td class="tdTableHeading tdLogicalColName">Logical Column Name</td><td class="tdTableHeading tdPhysicalColName">Physical Column Name</td><td class="tdTableHeading tdDataType">Type</td><td class="tdTableHeading tdPkFlag">PK</td><td class="tdTableHeading tdNullFlag">Nullable</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">task_id (PK)</td><td class="tdTableDefinition">task_id</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap>PK</td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+<tr valign="top">
+<td class="tdTableDefinition">task_name</td><td class="tdTableDefinition">task_name</td><td class="tdTableDefinition">VARCHAR(0)</td><td class="tdTableDefinition" nowrap></td><td class="tdTableDefinition" nowrap>NOT NULL</td>
+</tr>
+</table>
+<div class="references">
+<p class="subTitle">Referenced By</p>
+<ul>
+<li>
+<a href="#events<customer>">events&lt;customer&gt;</a> referencing (task_id)</li>
+<li>
+<a href="#stage_task">stage_task</a> referencing (task_id)</li>
+</ul>
+</div>
 </div>
 </body>
 </html>

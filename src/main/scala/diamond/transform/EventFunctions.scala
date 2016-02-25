@@ -3,9 +3,11 @@ package diamond.transform
 import java.util.Date
 
 import diamond.models.Event
+import diamond.utility.BoundedPriorityQueue
 import org.apache.spark.rdd.RDD
 import org.joda.time.{DateTime, Days}
 
+import scala.collection.mutable
 import scala.math.Ordered.orderingToOrdered
 
 /**
@@ -22,7 +24,7 @@ object EventFunctions {
 
     def count(attribute: String, startTime: Date, endTime: Date): Long =
       events.filter(ev =>
-        ev.attribute == attribute &&
+        ev.eventType == attribute &&
           (ev.ts.after(startTime) || ev.ts.equals(startTime)) &&
           (ev.ts.before(endTime) || ev.ts.equals(endTime))
       ).count()
@@ -32,7 +34,7 @@ object EventFunctions {
 
     def countUnique(attribute: String, startTime: Date, endTime: Date): Long =
       events.filter(ev =>
-        ev.attribute == attribute &&
+        ev.eventType == attribute &&
           (ev.ts.after(startTime) || ev.ts.equals(startTime)) &&
           (ev.ts.before(endTime) || ev.ts.equals(endTime))
       ).map(_.value).distinct().count()
@@ -42,7 +44,7 @@ object EventFunctions {
 
     def sum(attribute: String, startTime: Date, endTime: Date): Double =
       events.filter(ev =>
-        ev.attribute == attribute &&
+        ev.eventType == attribute &&
           (ev.ts.after(startTime) || ev.ts.equals(startTime)) &&
           (ev.ts.before(endTime) || ev.ts.equals(endTime))
       ).map(_.value.toDouble).sum()
@@ -52,16 +54,71 @@ object EventFunctions {
 
     def daysSinceLatest(attribute: String, date: Date = new Date): Int = {
       val latest = events.filter(ev =>
-        ev.attribute == attribute && (ev.ts.before(date) || ev.ts.equals(date))
+        ev.eventType == attribute && (ev.ts.before(date) || ev.ts.equals(date))
       ).takeOrdered(1)(EventReverseChronologicalOrdering)(0)
       Days.daysBetween(new DateTime(latest.ts), new DateTime(date)).getDays
     }
 
     def daysSinceEarliest(attribute: String, date: Date = new Date): Int = {
       val earliest = events.filter(ev =>
-        ev.attribute == attribute && (ev.ts.before(date) || ev.ts.equals(date))
+        ev.eventType == attribute && (ev.ts.before(date) || ev.ts.equals(date))
       ).takeOrdered(1)(EventChronologicalOrdering)(0)
       Days.daysBetween(new DateTime(earliest.ts), new DateTime(date)).getDays
+    }
+
+    def previousInteractions(n: Int): Map[String, Iterable[Event]] = {
+      type Heap = BoundedPriorityQueue[(Date, Event)]
+      val dates: RDD[((String, Event), Date)] = events.snapshot()
+        .map(ev => (ev.entity, ev) -> ev.ts)
+      val perPartition: RDD[Map[String, Heap]] = dates.mapPartitions { xs =>
+        val heaps = mutable.Map[String, Heap]().withDefault(_ => new Heap(n)(TimeEventOrdering))
+        for (((entity, ev), ts) <- xs) {
+          heaps(entity) += ts -> ev
+        }
+        Iterator.single(heaps.toMap)
+      }
+      val merged: Map[String, Heap] = perPartition.reduce { (hs1, hs2) =>
+        val heaps = mutable.Map[String, Heap]().withDefault(_ => new Heap(n)(TimeEventOrdering))
+        for ((entity, heap) <- hs1.toSeq ++ hs2.toSeq) {
+          for (x <- heap) {
+            heaps(entity) += x
+          }
+        }
+        heaps.toMap
+      }
+      merged.mapValues(_.map { case (ts, ev) => ev })
+    }
+
+    def previousInteractions(eventType: String, n: Int): Map[String, Iterable[Event]] = {
+
+
+
+      type Heap = BoundedPriorityQueue[(Date, Event)]
+      val dates: RDD[((String, Event), Date)] = events.snapshot()
+        .map(ev => (ev.entity, ev) -> ev.ts)
+      val perPartition: RDD[Map[String, Heap]] = dates.mapPartitions { xs =>
+        val heaps = mutable.Map[String, Heap]().withDefault(_ => new Heap(n)(TimeEventOrdering))
+        for (((entity, ev), ts) <- xs) {
+          heaps(entity) += ts -> ev
+        }
+        Iterator.single(heaps.toMap)
+      }
+      val merged: Map[String, Heap] = perPartition.reduce { (hs1, hs2) =>
+        val heaps = mutable.Map[String, Heap]().withDefault(_ => new Heap(n)(TimeEventOrdering))
+        for ((entity, heap) <- hs1.toSeq ++ hs2.toSeq) {
+          for (x <- heap) {
+            heaps(entity) += x
+          }
+        }
+        heaps.toMap
+      }
+      merged.mapValues(_.map { case (ts, ev) => ev })
+    }
+
+    def snapshot(): RDD[Event] = {
+      events.map(ev => (ev.entity, ev))
+        .reduceByKey((a, b) => if (a.version > b.version) a else b)
+        .map(_._2)
     }
 
   }
@@ -71,13 +128,19 @@ object EventFunctions {
 object EventReverseChronologicalOrdering extends Ordering[Event] {
 
   def compare(e1: Event, e2: Event) =
-    -(e1.entity, e1.attribute, e1.ts, e1.version).compare((e2.entity, e2.attribute, e2.ts, e2.version))
+    -(e1.entity, e1.eventType, e1.ts, e1.version).compare((e2.entity, e2.eventType, e2.ts, e2.version))
 
 }
 
 object EventChronologicalOrdering extends Ordering[Event] {
 
   def compare(e1: Event, e2: Event) =
-    (e1.entity, e1.attribute, e1.ts, e1.version).compare((e2.entity, e2.attribute, e2.ts, e2.version))
+    (e1.entity, e1.eventType, e1.ts, e1.version).compare((e2.entity, e2.eventType, e2.ts, e2.version))
+
+}
+
+object TimeEventOrdering extends Ordering[(Date, Event)] {
+
+  def compare(e1: (Date, Event), e2: (Date, Event)) = e1._1 compare e2._1
 
 }

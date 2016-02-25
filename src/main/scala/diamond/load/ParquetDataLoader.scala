@@ -376,8 +376,10 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
           (
             // inserts
             newRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+
             // updates
             changed.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+
             // deletes
             if (overwrite) {
               Some(deletesExisting
@@ -398,8 +400,10 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
           (
             // inserts
             newRecords,
+
             // updates
             changed,
+
             // deletes
             if (overwrite) {
               Some(deletesExisting)
@@ -427,7 +431,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
         if (deletes.isDefined) deletes.get.cache()
       }
 
-      val us =
+      val updatez =
         if (overwrite) {
           val cols =
             in(META_START_TIME).as(META_NEW_START_TIME) ::
@@ -445,8 +449,8 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
         }
 
       val all = deletes match {
-        case Some(ds) => inserts.unionAll(us).unionAll(ds)
-        case None => inserts.unionAll(us)
+        case Some(ds) => inserts.unionAll(updatez).unionAll(ds)
+        case None => inserts.unionAll(updatez)
       }
 
       val main =
@@ -483,12 +487,14 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
         .mode(SaveMode.Overwrite)
         .parquet(currentPath)
 
+      // append to process log
       val readCount = df.count()
       val deletesCount = if (deletes.isDefined) deletes.get.count() else 0
       writeProcessLog(fs, sqlContext, tableName, processId, processType, userId,
         readCount, readCount - distinct.count(), inserts.count(),
         updatesNew.count(), deletesCount, now, now)
 
+      // write change tables if set
       if (writeChangeTables) {
         val daysAgo = 3
         writeChangeTable(fs, inserts, header, s"$BASE_URI/$LAYER_ACQUISITION/$tableName/$FILE_NEW", daysAgo)
@@ -528,6 +534,7 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
         readCount, readCount - distinct.count(), readCount, 0, 0,
         now, now)
 
+      // write meta file
       val metadata = Map(
         "idFields" -> idFields,
         "idType" -> idType,

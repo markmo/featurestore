@@ -195,7 +195,8 @@ class HiveDataLoader(implicit val conf: AppConfig) extends DataLoader {
           s"""
              |$sqlNewEntities
              |and i.$delIndField <> $delIndFieldLit
-         """.stripMargin).count(),
+           """.stripMargin).count(),
+
         0L
 
         // update query with join not supported in hive
@@ -381,8 +382,10 @@ class HiveDataLoader(implicit val conf: AppConfig) extends DataLoader {
           (
             // inserts
             newRecords.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+
             // changes
             changed.where(col(deleteIndicatorField.get._1) !== lit(deleteIndicatorField.get._2)),
+
             // deletes
             if (overwrite) {
               Some(deletesExisting
@@ -403,8 +406,10 @@ class HiveDataLoader(implicit val conf: AppConfig) extends DataLoader {
           (
             // inserts
             newRecords,
+
             // changes
             changed,
+
             // deletes
             if (overwrite) {
               Some(deletesExisting)
