@@ -1,6 +1,6 @@
 # Data-driven Customer Journey Mapping
 
-![Customer Journey Taxonomy](../images/customer_journey_taxonomy.png)
+<img src="../images/customer_journey_taxonomy.png" title="Customer Journey Taxonomy" style="width:625px; height:550px;">
 
 ## Definition of terms
 
@@ -16,7 +16,7 @@
             <p>The process a customer navigates in relationship with an organisation to accomplish an objective. Customer journeys have a start and end, which may span days, weeks or months. Customer journeys are often unique but patterns can emerge, which can be used to define a class of customers. Journeys tell a story about what an entity experienced in reaching an end state. Big Data enables analysis of all experiences and the journeys they contain to ensure precision in analysis outcomes and the business decisions they drive. Example journeys include:
         </td>
         <td>
-            <ul style="padding-left:10px">
+            <ul style="padding-left:5px">
                 <li>Order to activation
                 <li>Product purchase and post-purchase care
                 <li>Complaint escalation
@@ -29,7 +29,7 @@
             <p>Common cross-channel behaviours in aggregate.
         </td>
         <td>
-            <ul style="padding-left:10px">
+            <ul style="padding-left:5px">
                 <li>Discover
                 <li>Purchase
                 <li>Setup
@@ -42,7 +42,7 @@
             <p>A business defined task performed in a specific channel, perhaps using a specific device or technology. The general form of a specific interaction.
         </td>
         <td>
-            <ul style="padding-left:10px">
+            <ul style="padding-left:5px">
                 <li>Received notification with personalized offer
                 <li>Get Help from Website
                 <li>Add to cart
@@ -55,7 +55,7 @@
             <p>A raw event involving a specific entity and system.
         </td>
         <td>
-            <ul style="padding-left:10px">
+            <ul style="padding-left:5px">
                 <li>Called Contact Centre – Product enquiry
                 <li>Email – Sent offer (Campaign ABC)
                 <li>Live Chat – Offer enquiry
@@ -70,7 +70,7 @@
             <p>Extracting or selecting features is a combination of art and science; developing systems to do so is known as feature engineering. It requires the experimentation of multiple possibilities and the combination of automated techniques with the intuition and knowledge of the domain expert. Automating this process is feature learning, where a machine not only uses features for learning, but learns the features itself.
         </td>
         <td>
-            <ul style="padding-left:10px">
+            <ul style="padding-left:5px">
                 <li>Regular video usage during a standard commute time
                 <li>Increased use of international roaming
             </ul>
