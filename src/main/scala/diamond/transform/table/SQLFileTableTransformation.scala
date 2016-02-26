@@ -1,7 +1,7 @@
 package diamond.transform.table
 
 import diamond.transform.TransformationContext
-import diamond.utility.functions
+import diamond.utility.stringFunctions
 import org.apache.spark.sql.DataFrame
 
 import scala.io.Source
@@ -16,7 +16,7 @@ import scala.io.Source
   */
 trait SQLFileTableTransformation extends TableTransformation {
 
-  import functions._
+  import stringFunctions._
 
   val tableName: String
 

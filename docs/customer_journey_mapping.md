@@ -1,6 +1,6 @@
 # Data-driven Customer Journey Mapping
 
-<img src="../images/customer_journey_taxonomy.png" title="Customer Journey Taxonomy" style="width:625px; height:550px;">
+<img src="../images/customer_journey_taxonomy.png" title="Customer Journey Taxonomy" style="width:469px; height:413px;">
 
 ## Definition of terms
 

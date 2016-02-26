@@ -1,6 +1,6 @@
 package diamond.transform.sql
 
-import diamond.utility.functions
+import diamond.utility.stringFunctions
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
 /**
@@ -8,7 +8,7 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
   */
 class SQLTransformation(sql: String, params: Map[String, String]) extends Serializable {
 
-  import functions._
+  import stringFunctions._
 
   def apply(sqlContext: SQLContext): DataFrame = sqlContext.sql(sql.template(params))
 

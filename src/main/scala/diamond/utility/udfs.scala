@@ -1,6 +1,7 @@
 package diamond.utility
 
-import functions._
+import diamond.utility.dateFunctions._
+import diamond.utility.hashFunctions._
 import org.apache.spark.sql.functions._
 
 /**

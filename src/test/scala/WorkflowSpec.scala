@@ -7,7 +7,9 @@ import diamond.transform.TransformationContext
 import diamond.transform.row.{AppendColumnRowTransformation, RowTransformation}
 import diamond.transform.sql.NamedSQLTransformation
 import diamond.transform.table.RowTransformationPipeline
-import diamond.utility.functions
+import diamond.utility.dateFunctions._
+import diamond.utility.hashFunctions._
+import diamond.utility.stringFunctions._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
@@ -317,7 +319,6 @@ class WorkflowSpec extends UnitSpec {
 
   "A Snapshot" should "return a snapshot view of features" in {
     import diamond.transform.PivotFunctions._
-    import functions._
 
     val cal = Calendar.getInstance()
 
@@ -389,7 +390,6 @@ class WorkflowSpec extends UnitSpec {
   }
 
   "A StringTemplate" should "correctly interpolate a string" in {
-    import functions._
 
     "Hello $w".template(Map("w" -> "World")) should equal("Hello World")
     "Hello ${w}".template(Map("w" -> "World")) should equal("Hello World")

@@ -1,7 +1,7 @@
 import java.net.URI
 
 import diamond.load.ParquetDataLoader
-import diamond.utility.functions._
+import diamond.utility.hashFunctions._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.sql.functions._

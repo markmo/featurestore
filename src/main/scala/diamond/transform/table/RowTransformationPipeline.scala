@@ -5,9 +5,8 @@ import java.util.Calendar
 import diamond.models.{ErrorThresholdReachedException, TransformationError}
 import diamond.store.ErrorRepository
 import diamond.transform.row.{AppendColumnRowTransformation, RowTransformation}
-import diamond.utility.utilityFunctions
-import utilityFunctions._
 import diamond.transform.{Pipeline, TransformationContext}
+import diamond.utility.sortFunctions._
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 

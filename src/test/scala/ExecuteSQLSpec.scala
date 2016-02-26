@@ -1,6 +1,8 @@
 import java.util.Calendar
 
 import diamond.transform.sql.NamedSQLTransformation
+import diamond.utility.dateFunctions._
+import diamond.utility.stringFunctions._
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
@@ -8,8 +10,6 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
   * Created by markmo on 23/02/2016.
   */
 class ExecuteSQLSpec extends UnitSpec {
-
-  import diamond.utility.functions._
 
   @transient var rawDF: DataFrame = _
 
@@ -43,7 +43,7 @@ class ExecuteSQLSpec extends UnitSpec {
     val results = transform(sqlContext)
 
     // results should return 1 row
-    results.count() should be (1)
+    results.count() should be(1)
 
     // and the time should be '2013-02-04 00:00:00+10'
     val cal = Calendar.getInstance

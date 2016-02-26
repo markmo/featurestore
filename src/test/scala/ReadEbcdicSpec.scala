@@ -1,4 +1,4 @@
-import diamond.utility.functions._
+import diamond.utility.encodingFunctions._
 
 /**
   * Created by markmo on 19/02/2016.

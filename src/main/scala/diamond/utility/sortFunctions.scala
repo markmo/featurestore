@@ -5,13 +5,13 @@ import scala.annotation.tailrec
 /**
   * Created by markmo on 12/12/2015.
   */
-object utilityFunctions {
+object sortFunctions {
 
   /**
     * Topological sort. Used to sort the Pipeline DAG to perform
     * independent transformations before dependent transformations.
     *
-    * @param edges
+    * @param edges Traversable[(A, A)]
     * @tparam A
     * @return an Iterable of A
     */

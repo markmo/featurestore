@@ -2,7 +2,8 @@ package diamond.load
 
 import com.github.nscala_time.time.Imports._
 import diamond.AppConfig
-import diamond.utility.functions._
+import diamond.utility.hashFunctions._
+import diamond.utility.stringFunctions._
 import diamond.utility.udfs._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{IntegerType, TimestampType}
@@ -188,7 +189,7 @@ class HiveDataLoader(implicit val conf: AppConfig) extends DataLoader {
     val (insertsCount: Long, deletesCount: Long) = if (deleteIndicatorField.isDefined) {
       val delIndField = deleteIndicatorField.get._1
       val delIndFieldVal = deleteIndicatorField.get._2.toString
-      val delIndFieldLit = if (isNumber(delIndFieldVal)) delIndFieldVal else s"'$delIndFieldVal'"
+      val delIndFieldLit = if (delIndFieldVal.isNumber) delIndFieldVal else s"'$delIndFieldVal'"
 
       (
         sqlContext.sql(
