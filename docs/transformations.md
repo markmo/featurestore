@@ -208,7 +208,7 @@ A Pipeline consists of one or more Transformations.
 
 ![Class Hierarchy](../images/class_hierarchy.png)
 
-A [Pipeline](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/Pipeline.scala) can consist of:
+A [Pipeline](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/Pipeline.scala) can consist of:
 
 * An optional Source
 * One or more Transformations
@@ -220,9 +220,9 @@ __Source__
 
     def apply(ctx: TransformationContext): DataFrame
     
-A [Source](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Source.scala) takes a [TransformationContext](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/TransformationContext.scala) and returns a [Spark DataFrame](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.DataFrame).
+A [Source](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/io/Source.scala) takes a [TransformationContext](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/TransformationContext.scala) and returns a [Spark DataFrame](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.DataFrame).
 
-A [TransformationContext](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/TransformationContext.scala) is passed like a baton from one step of the Pipeline to the next. It is a hashmap of data, which supplies parameters as well as enabling data to be passed to future steps.
+A [TransformationContext](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/TransformationContext.scala) is passed like a baton from one step of the Pipeline to the next. It is a hashmap of data, which supplies parameters as well as enabling data to be passed to future steps.
 
 A DataFrame is a distributed collection of data organized into named columns. It is conceptually equivalent to a data frame in R/Python, but with richer optimizations under the hood. DataFrames can be constructed from a wide array of sources such as: structured data files, tables in Hive, external databases, or existing RDDs.
     
@@ -236,13 +236,13 @@ __TableTransformation__
 
     def apply(df: DataFrame, ctx: TransformationContext): DataFrame
 
-A [TableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/TableTransformation.scala) takes a DataFrame and TransformationContext, and returns a new transformed DataFrame.
+A [TableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/table/TableTransformation.scala) takes a DataFrame and TransformationContext, and returns a new transformed DataFrame.
 
 __RowTransformation__
 
     def apply(row: Row, ctx: TransformationContext): Row
 
-A [RowTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/row/RowTransformation.scala) takes a [Spark Row object](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.Row) and TransformationContext, and returns a new transformed Row.
+A [RowTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/row/RowTransformation.scala) takes a [Spark Row object](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.Row) and TransformationContext, and returns a new transformed Row.
 
 Pipelines can be composed into larger pipelines.
 
@@ -256,16 +256,16 @@ Transformations may be applied at a per-row level or on the table as a whole, e.
 
 Row-level transformations:
 
-* [AppendColumnRowTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/row/AppendColumnRowTransformation.scala) - Appends a new column value to a row. Instead of implementing `apply`, the developer implements `append`, which returns the new value. The value may be calculated with reference to any other value in the Row or to the TransformationContext.
-* [RowTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/row/RowTransformation.scala) - A general row transformation that takes a Row and returns a new Row. The new Row may conform to a different schema. The new Row may be computed with reference to any values in the original Row or to any values in the TransformationContext.
+* [AppendColumnRowTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/row/AppendColumnRowTransformation.scala) - Appends a new column value to a row. Instead of implementing `apply`, the developer implements `append`, which returns the new value. The value may be calculated with reference to any other value in the Row or to the TransformationContext.
+* [RowTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/row/RowTransformation.scala) - A general row transformation that takes a Row and returns a new Row. The new Row may conform to a different schema. The new Row may be computed with reference to any values in the original Row or to any values in the TransformationContext.
 
 Table-level transformations:
 
-* [NamedSQLTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/NamedSQLTableTransformation.scala) - Uses Spark SQL given a named query (queryName) from a configuration file (propsPath) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
-* [SQLTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/SQLTableTransformation.scala) - Uses Spark SQL given a query string (sql) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
-* [SQLFileTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/SQLFileTableTransformation.scala) - Uses Spark SQL given a SQL statement loaded from a configuration file (filename) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
-* [TableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/TableTransformation.scala) - A general table-level transformation that takes a DataFrame and returns a new DataFrame. The new DataFrame may conform to a different schema. It may be computed with reference to the original DataFrame or to any values in the TransformationContext.
-* [RowTransformationPipeline](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/table/RowTransformationPipeline.scala) - A RowTransformationPipeline takes a DataFrame and applies a Pipeline of row-level transformations to return a new DataFrame. The supplied DataFrame and TransformationContext are provided as inputs to the Pipeline.
+* [NamedSQLTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/table/NamedSQLTableTransformation.scala) - Uses Spark SQL given a named query (queryName) from a configuration file (propsPath) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
+* [SQLTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/table/SQLTableTransformation.scala) - Uses Spark SQL given a query string (sql) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
+* [SQLFileTableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/table/SQLFileTableTransformation.scala) - Uses Spark SQL given a SQL statement loaded from a configuration file (filename) to construct a new DataFrame. The new DataFrame may be computed with reference to the existing DataFrame, e.g. projection, and to any values in the TransformationContext.
+* [TableTransformation](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/table/TableTransformation.scala) - A general table-level transformation that takes a DataFrame and returns a new DataFrame. The new DataFrame may conform to a different schema. It may be computed with reference to the original DataFrame or to any values in the TransformationContext.
+* [RowTransformationPipeline](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transform/table/RowTransformationPipeline.scala) - A RowTransformationPipeline takes a DataFrame and applies a Pipeline of row-level transformations to return a new DataFrame. The supplied DataFrame and TransformationContext are provided as inputs to the Pipeline.
 
 The following template Sources exist.
 
@@ -282,13 +282,13 @@ The following template Sinks exist.
 
 The following library functions exist.
 
-* [convertStringToDate](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Converts a date string of a given pattern to a Date object.
-* [formatDateString](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Formats a date string of a given pattern to a conformed format (yyyy-MM-dd).
-* [formatDateTimeString](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Formats a date string of a given pattern to a conformed date and time format (yyyy-MM-dd HH:mm:ss).
-* [convertStringToTimestamp](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Converts a date string of a given pattern to epoch (unix) time, defined as the number of seconds that have elapsed since 00:00:00 Coordinated Universal Time (UTC), Thursday, 1 January 1970, not counting leap seconds.
-* [hashKey](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Hashes a string key using SHA-256. Used to hash entity keys, which may be composite.
-* [template](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Using the "pimp my library" pattern to render a string template substituting variables.
-* [score](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/transformation/functions.scala) - Score DataFrame using POJO model from H2O.
+* [convertStringToDate](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/dateFunctions.scala) - Converts a date string of a given pattern to a Date object.
+* [formatDateString](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/dateFunctions.scala) - Formats a date string of a given pattern to a conformed format (yyyy-MM-dd).
+* [formatDateTimeString](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/dateFunctions.scala) - Formats a date string of a given pattern to a conformed date and time format (yyyy-MM-dd HH:mm:ss).
+* [convertStringToTimestamp](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/dateFunctions.scala) - Converts a date string of a given pattern to epoch (unix) time, defined as the number of seconds that have elapsed since 00:00:00 Coordinated Universal Time (UTC), Thursday, 1 January 1970, not counting leap seconds.
+* [hashKey](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/hashFunctions.scala) - Hashes a string key using SHA-256. Used to hash entity keys, which may be composite.
+* [template](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/stringFunctions.scala) - Using the "pimp my library" pattern to render a string template substituting variables.
+* [score](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/scoringFunctions.scala) - Score DataFrame using POJO model from H2O.
 
 These functions may be accessed by including the following import statement.
 
