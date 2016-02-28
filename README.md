@@ -8,7 +8,7 @@ A framework for feature engineering on Spark that applies the following principl
 
 Traditionally data is “pushed through” given an updated source and coordinated using a workflow / scheduling tool.
 
-<img src="./images/reactive__pipeline.png" title="Reactive Pipeline">
+<img src="./images/reactive_pipeline.png" title="Reactive Pipeline">
 
 A reactive system will publish a message that new data is available, and the reactive system will ”pull data through” to update features just-in-time. This creates a lean yet low latency data pipeline.
 
