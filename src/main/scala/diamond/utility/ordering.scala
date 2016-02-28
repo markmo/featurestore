@@ -12,20 +12,37 @@ import scala.math.Ordered.orderingToOrdered
 
 object EventReverseChronologicalOrdering extends Ordering[Event] {
 
-  def compare(e1: Event, e2: Event) =
-    -(e1.entity, e1.eventType, e1.ts, e1.version).compare((e2.entity, e2.eventType, e2.ts, e2.version))
+  def compare(a: Event, b: Event) =
+    (a.entity, a.ts) compare ((b.entity, b.ts))
 
 }
 
 object EventChronologicalOrdering extends Ordering[Event] {
 
-  def compare(e1: Event, e2: Event) =
-    (e1.entity, e1.eventType, e1.ts, e1.version).compare((e2.entity, e2.eventType, e2.ts, e2.version))
+  def compare(a: Event, b: Event) =
+    (b.entity, b.ts) compare ((a.entity, a.ts))
 
 }
 
 object TimeEventOrdering extends Ordering[(Date, Event)] {
 
-  def compare(e1: (Date, Event), e2: (Date, Event)) = e1._1 compare e2._1
+  def compare(a: (Date, Event), b: (Date, Event)) = a._1 compare b._1
+
+}
+
+object TimeEventCountOrdering extends Ordering[(Date, (Event, Int))] {
+
+  def compare(a: (Date, (Event, Int)), b: (Date, (Event, Int))) = a._1 compare b._1
+
+}
+
+object EventDateOrdering extends Ordering[(String, (Event, Date, Date))] {
+
+  def compare(a: (String, (Event, Date, Date)), b: (String, (Event, Date, Date))) =
+    if (a._1 == b._1) {
+      b._2._3 compare a._2._3
+    } else {
+      a._1 compare b._1
+    }
 
 }

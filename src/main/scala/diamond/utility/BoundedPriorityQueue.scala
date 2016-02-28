@@ -18,7 +18,10 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
 
   private val underlying = new JPriorityQueue[A](maxSize, ord)
 
+  // PriorityQueue not guaranteed to return elements in sorted order
   override def iterator: Iterator[A] = underlying.iterator.asScala
+
+  def sorted = iterator.toList.sorted(ord)
 
   override def size: Int = underlying.size
 
@@ -40,7 +43,9 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
     this += elem1 += elem2 ++= elems
   }
 
-  override def clear() { underlying.clear() }
+  override def clear() {
+    underlying.clear()
+  }
 
   private def maybeReplaceLowest(a: A): Boolean = {
     val head = underlying.peek()

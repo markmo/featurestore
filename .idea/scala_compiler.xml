@@ -13,7 +13,7 @@
         <parameter value="UTF-8" />
         <parameter value="-Xfatal-warnings" />
         <parameter value="-Yno-adapted-args" />
-        <parameter value="-Ywarn-numeric-widen" />
+        <parameter value="-Xlog-implicits" />
         <parameter value="-Xfuture" />
       </parameters>
     </profile>

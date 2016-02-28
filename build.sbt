@@ -61,8 +61,9 @@ scalacOptions ++= List(
 //  "-Xlint",
   "-Yno-adapted-args",
   //"-Ywarn-dead-code",
-  "-Ywarn-numeric-widen",
+//  "-Ywarn-numeric-widen",
   //"-Ywarn-value-discard", // fails with @sp on Unit
+  "-Xlog-implicits",
   "-Xfuture"
 )
 

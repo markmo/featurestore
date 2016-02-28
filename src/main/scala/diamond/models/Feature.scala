@@ -1,6 +1,7 @@
 package diamond.models
 
 import diamond.models.AttributeType.AttributeType
+import org.joda.time.DateTime
 
 /**
   * Feature metadata
@@ -31,6 +32,22 @@ object Feature {
   def fromArray(a: Array[String]) = Feature(a(0), AttributeType.withName(a(1)), a(2), a(3), a(4), a(5).toBoolean)
 
 }
+
+trait FeatureType[V] {
+  val name: String
+}
+
+trait FeatureX[V] extends FeatureType[V] {
+  val value: V
+}
+
+case class FeatureCollection(id: Int,
+                             created: DateTime,
+                             features: Set[_ <: FeatureType[_]],
+                             label: LabelType[_]
+                            )
+
+trait LabelType[V] {}
 
 /**
   * Base attribute - from source data, e.g. 'Birth Date'

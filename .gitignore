@@ -1,4 +1,6 @@
 samples/
+src/test/resources/base/omniture/sample_hit_data.tsv
+src/test/resources/base/omniture/hit_data.tsv
 
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio
 

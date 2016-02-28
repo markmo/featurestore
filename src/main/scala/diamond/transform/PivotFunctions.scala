@@ -4,6 +4,7 @@ import java.util.Date
 
 import diamond.models.Event
 import diamond.store.FeatureStore
+import diamond.utility.EventChronologicalOrdering
 import org.apache.spark.rdd.RDD
 
 /**
@@ -36,7 +37,7 @@ object PivotFunctions {
               // return the event in the first tuple
               // sorted by latest first
               .map {
-                case (_, es) => es.map(_._2).toList.sorted.head
+                case (_, es) => es.map(_._2).toList.sorted(EventChronologicalOrdering).head
               }
 
           // create a map of the features that an entity has
@@ -66,7 +67,7 @@ object PivotFunctions {
           // returns Map(type -> List((type, event)))
           val grouped = evs.map(ev => (ev.eventType, ev)).groupBy(_._1)
           if (grouped.contains(attribute)) {
-            val syncTime = grouped(attribute).map(_._2).toList.sorted.head.ts
+            val syncTime = grouped(attribute).map(_._2).toList.sorted(EventChronologicalOrdering).head.ts
             val chordEvents =
               grouped
                 .map {
@@ -74,7 +75,7 @@ object PivotFunctions {
                     es
                       .map(_._2)
                       .filter(ev => ev.ts.before(syncTime) || ev.ts.equals(syncTime))
-                      .toList.sorted.head
+                      .toList.sorted(EventChronologicalOrdering).head
                 }
 
             // create a map of the features that an entity has
