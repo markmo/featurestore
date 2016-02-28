@@ -13,7 +13,7 @@ Traditionally data is “pushed through” given an updated source and coordinat
 
 A reactive system will publish a message that new data is available, and the reactive system will ”pull data through” to update features just-in-time. This creates a lean yet low latency data pipeline.
 
-<img src="../images/nested_history.png" title="History as nested data structures">
+<img src="./images/nested_history.png" title="History as nested data structures">
 
 Using a nested structure, history belongs to the individual feature. History doesn’t need to be recalculated at all if not required for the new feature.
 
