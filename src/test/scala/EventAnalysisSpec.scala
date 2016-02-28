@@ -5,9 +5,6 @@ import diamond.transform.eventFunctions._
 import diamond.utility.dateFunctions._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
-
-import scala.io.Source
 
 /**
   * Created by markmo on 27/02/2016.
@@ -43,8 +40,6 @@ class EventAnalysisSpec extends UnitSpec {
   }
 
   "The framework" should "read Omniture data as a data frame" in {
-//    rawDF.printSchema()
-//    rawDF.show()
 //    val fields = rawDF.schema.fieldNames
     val cal = Calendar.getInstance
     val now = cal.getTime
@@ -155,28 +150,29 @@ class EventAnalysisSpec extends UnitSpec {
           version = 1)
       })
 
-//    events.collect().foreach(println)
-
-//    events.take(10).map(_.eventType).foreach(println)
-
-//    val interactions = events.previousInteractions(3, now)
+    val interactions = events.previousInteractions(3, now)
 
 //    interactions.collect().map {
 //      case (entity, evs) => (entity, evs.map(_.eventType).mkString(","))
 //    }.foreach(println)
 
-//    val ps = paths(interactions.collect().map {
-//      case (entity, evs) => (entity, evs.toIterable)
-//    }.toMap)
-//    ps.foreach(println)
+    val ps = paths(interactions.collect().map {
+      case (entity, evs) => (entity, evs.toIterable)
+    }.toMap)
+
+    ps("1001") should include ("livechat")
 
     val uniqueInteractions = events.previousUniqueInteractions("call", 3, now)
-    println(">>>")
-    uniqueInteractions.map {
-      case (entity, evs) => (entity, evs.map {
-        case (ev, k) => (ev.eventType, k)
-      })
-    }.foreach(println)
+
+//    uniqueInteractions.map {
+//      case (entity, evs) => (entity, evs.map {
+//        case (ev, k) => (ev.eventType, k)
+//      })
+//    }.foreach(println)
+
+    val uniqps = uniquePaths(uniqueInteractions)
+
+    uniqps("1002") should equal("web,call")
   }
 
 }

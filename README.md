@@ -4,11 +4,11 @@ A framework for feature engineering on Spark that applies the following principl
 
 * Reactive data pipelines - data from source is "pulled through" a set of transformations to derive a feature, which may involve a machine learning model step (similar to how a spreadsheet recalculates after a cell change). Pipelines are defined through function decomposition instead of through orchestration. When new data becomes available, a message is published, which results in all features that are dependent on the new data to recalculate.
 
-<img src="../images/traditional_data_pipeline.png" title="Traditional Data Pipeline">
+<img src="./images/traditional_data_pipeline.png" title="Traditional Data Pipeline">
 
 Traditionally data is “pushed through” given an updated source and coordinated using a workflow / scheduling tool.
 
-<img src="../images/reactive__pipeline.png" title="Reactive Pipeline">
+<img src="./images/reactive__pipeline.png" title="Reactive Pipeline">
 
 A reactive system will publish a message that new data is available, and the reactive system will ”pull data through” to update features just-in-time. This creates a lean yet low latency data pipeline.
 
