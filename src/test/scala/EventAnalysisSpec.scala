@@ -5,6 +5,7 @@ import diamond.transform.eventFunctions._
 import diamond.utility.dateFunctions._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.streaming.Duration
 
 /**
   * Created by markmo on 27/02/2016.
@@ -39,7 +40,7 @@ class EventAnalysisSpec extends UnitSpec {
     rawDF.registerTempTable("events")
   }
 
-  "The framework" should "read Omniture data as a data frame" in {
+  "The framework" should "extract paths from event data" in {
 //    val fields = rawDF.schema.fieldNames
     val cal = Calendar.getInstance
     val now = cal.getTime
@@ -135,7 +136,7 @@ class EventAnalysisSpec extends UnitSpec {
           eventType = eventType,
           ts = convertStringToDate(row(2).toString, OUTPUT_DATE_TIME_PATTERN),
           namespace = "default",
-          session = None,
+          session = 0,
           task = None,
           value = eventType,
           properties = "{}",
@@ -173,6 +174,48 @@ class EventAnalysisSpec extends UnitSpec {
     val uniqps = uniquePaths(uniqueInteractions)
 
     uniqps("1002") should equal("web,call")
+  }
+
+  it should "sessionize event data" in {
+    val cal = Calendar.getInstance
+    val now = cal.getTime
+    cal.set(9999, 11, 1)
+    val defaultEndDate = cal.getTime
+    val source = samplePath
+
+    val events: RDD[Event] = sqlContext.sql(
+      """
+        |select customer_id, event_type, date_time
+        |from events
+      """.stripMargin)
+      .map(row => {
+        val eventType = row(1).toString
+        Event(entity = row(0).toString,
+          eventType = eventType,
+          ts = convertStringToDate(row(2).toString, OUTPUT_DATE_TIME_PATTERN),
+          namespace = "default",
+          session = 0,
+          task = None,
+          value = eventType,
+          properties = "{}",
+          startTime = now,
+          endTime = defaultEndDate,
+          source = source,
+          processType = "test",
+          processId = "test",
+          processDate = now,
+          userId = "test",
+          rectype = "I",
+          version = 1)
+      })
+
+    val sessionized = events.sessionize(Duration(1 * 24 * 60 * 60 * 1000))
+
+//    sessionized.collect().map(ev => (ev.entity, ev.session, ev.eventType, ev.ts)).foreach(println)
+
+    val churn1003 = sessionized.filter(ev => ev.entity == "1003" && ev.eventType == "churn").first()
+
+    churn1003.session should be (3)
   }
 
 }

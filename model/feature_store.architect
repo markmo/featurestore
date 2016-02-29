@@ -28,7 +28,7 @@
     <column id="COL6" populated="true" UUID="f5083b3e-852c-42e3-a150-766a0c890755" autoIncrement="false" autoIncrementSequenceName="events&lt;service_type&gt;_namespace_seq" defaultValue="" name="namespace" nullable="1" physicalName="namespace" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
      <remarks></remarks>
     </column>
-    <column id="COL7" populated="true" UUID="851de619-34f6-4e8b-a08e-64d31c795bc7" autoIncrement="false" autoIncrementSequenceName="events&lt;service_type&gt;_session_id_seq" defaultValue="" name="session_id" nullable="1" physicalName="session_id" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
+    <column id="COL7" populated="true" UUID="851de619-34f6-4e8b-a08e-64d31c795bc7" autoIncrement="false" autoIncrementSequenceName="events&lt;service_type&gt;_session_id_seq" defaultValue="" name="session_id" nullable="0" physicalName="session_id" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="4" userDefinedTypeUUID="63b011c7-c81f-4c75-8271-632b3c87f727" >
      <remarks></remarks>
     </column>
     <column id="COL8" populated="true" UUID="4fdfd8b1-9cde-4acd-a759-7a74ceadc98d" autoIncrement="false" autoIncrementSequenceName="events&lt;service_type&gt;_value_seq" defaultValue="" name="event_value" nullable="1" physicalName="event_value" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
@@ -420,7 +420,7 @@
     <column id="COL129" populated="true" UUID="e76b6a5d-5eef-4f08-836d-88011dd76665" autoIncrement="false" autoIncrementSequenceName="tasks&lt;customer&gt;_task_id_seq" defaultValue="" name="task_id" nullable="0" physicalName="task_id" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
      <remarks></remarks>
     </column>
-    <column id="COL130" populated="true" UUID="16989ed3-ca1a-483e-aabb-8a5b33ce4bfe" autoIncrement="false" autoIncrementSequenceName="events&lt;customer&gt;_session_id_seq" defaultValue="" name="session_id" nullable="1" physicalName="session_id" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
+    <column id="COL130" populated="true" UUID="16989ed3-ca1a-483e-aabb-8a5b33ce4bfe" autoIncrement="false" autoIncrementSequenceName="events&lt;customer&gt;_session_id_seq" defaultValue="" name="session_id" nullable="0" physicalName="session_id" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="4" userDefinedTypeUUID="63b011c7-c81f-4c75-8271-632b3c87f727" >
      <remarks></remarks>
     </column>
     <column id="COL131" populated="true" UUID="1c8a278d-3a95-4c75-ae05-eacdd3f34062" autoIncrement="false" autoIncrementSequenceName="events&lt;customer&gt;_value_seq" defaultValue="" name="event_value" nullable="1" physicalName="event_value" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >

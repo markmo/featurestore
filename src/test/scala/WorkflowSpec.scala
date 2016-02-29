@@ -328,7 +328,7 @@ class WorkflowSpec extends UnitSpec {
         row.getAs[String]("eventType"),
         convertStringToDate(row.getAs[String]("ts"), "yyyy-MM-dd"),
         "test",
-        None,
+        0,
         None,
         row.getAs[String]("value"),
         row.getAs[String]("properties"),

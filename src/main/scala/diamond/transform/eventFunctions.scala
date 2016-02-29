@@ -6,6 +6,7 @@ import diamond.models.Event
 import diamond.utility._
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.streaming.Duration
 import org.joda.time.{DateTime, Days}
 
 import scala.collection.mutable
@@ -60,6 +61,41 @@ object eventFunctions {
       Days.daysBetween(new DateTime(earliest.ts), new DateTime(date)).getDays
     }
 
+    /**
+      * Sessionize a sequence of events based on grouping events separated by
+      * less than the timeout.
+      *
+      * @param timeout Duration in milliseconds
+      * @return RDD[Event] updated sessionized events
+      */
+    def sessionize(timeout: Duration): RDD[Event] = {
+      if (events.count < 2) {
+        events
+      } else {
+        events.current().map(ev => (ev.entity, ev)).groupByKey().flatMap {
+          case (entity, ev) =>
+            val sorted = ev.toSeq.sorted(EventReverseChronologicalOrdering)
+            val head = sorted.head.copy(session = 1)
+            sorted.tail.scanLeft(head) { case (prev, cur) =>
+              // calculate session
+              def session = if (sessionTimedOut) prev.session + 1 else prev.session
+
+              // returns true if the session has timed out between the prev and cur event
+              def sessionTimedOut = cur.ts.getTime - prev.ts.getTime > timeout.milliseconds
+
+              cur.copy(session = session)
+            }
+        }
+      }
+    }
+
+    /**
+      * Extract a list of event paths for each entity.
+      *
+      * @param n Int max path size
+      * @param asof Date include only interactions before or on this date
+      * @return RDD[(String, Array[Event])] event paths keyed by entity
+      */
     def previousInteractions(n: Int, asof: Date): RDD[(String, Array[Event])] = {
       events
         .current() // include only current versions of events
@@ -68,6 +104,21 @@ object eventFunctions {
         .topByKey(n)(EventReverseChronologicalOrdering)
     }
 
+    /**
+      * Extract the event path to a specified size for each entity. Each path
+      * ends at the event with the given eventType, which means that each path
+      * ends at a different point in time for each entity. This arrangement is
+      * called a chord because the same type of event is lined up across
+      * entities like fingers forming a chord on a guitar. For example, a
+      * purchase will occur at a different time for each customer. It is
+      * common to train a model based on the history before or after a
+      * significant event.
+      *
+      * @param eventType String
+      * @param n Int max path size
+      * @param asof Date include only interactions before or on this date
+      * @return Map[String, Iterable[Event event paths keyed by entity
+      */
     def previousInteractions(eventType: String, n: Int, asof: Date): Map[String, Iterable[Event]] = {
       type Heap = BoundedPriorityQueue[(Date, Event)]
       val cal = Calendar.getInstance
@@ -127,6 +178,16 @@ object eventFunctions {
       result.toMap
     }
 
+    /**
+      * Similar to `previousInteractions` except paths will collapse contiguous
+      * events of the same type, including an occurrence count with each event
+      * in the path.
+      *
+      * @param eventType String
+      * @param n Int max path size
+      * @param asof Date include only interactions before or on this date
+      * @return Map[String, Iterable[(Event, Int) event paths keyed by entity
+      */
     def previousUniqueInteractions(eventType: String, n: Int, asof: Date): Map[String, Iterable[(Event, Int)]] = {
       type Heap = BoundedPriorityQueue[(Date, (Event, Int))]
       val cal = Calendar.getInstance
@@ -153,30 +214,30 @@ object eventFunctions {
       val perPartition: RDD[Map[String, Heap]] = times.mapPartitions { xs =>
         val heaps = mutable.Map[String, Heap]()
         // current tuple of event and count
-        var token: (Event, Int) = (null, 0)
+        var cur: (Event, Int) = (null, 0)
         for ((entity, (ev, chord, ts)) <- xs.toSeq.sorted(EventDateOrdering) if ts <= chord) {
-          val (e, k) = token
+          val (e, k) = cur
           if (e == null) {
-            token = (ev, 1)
+            cur = (ev, 1)
           } else if (entity == e.entity && ev.eventType == e.eventType) {
             // if same entity and event type then increment count
             // keep latest event
             if (ts after e.ts) {
-              token = (ev, k + 1)
+              cur = (ev, k + 1)
             } else {
-              token = (e, k + 1)
+              cur = (e, k + 1)
             }
           } else {
             // method doesn't work if new Heap set as default value on heaps map
             val heap = if (heaps.contains(e.entity)) heaps(e.entity) else new Heap(n)(TimeEventCountOrdering)
             heap += ((e.ts, (e, k)))
             heaps(e.entity) = heap
-            token = (ev, 1)
+            cur = (ev, 1)
           }
         }
-        val (e, _) = token
+        val (e, _) = cur
         val heap = if (heaps.contains(e.entity)) heaps(e.entity) else new Heap(n)(TimeEventCountOrdering)
-        heap += ((e.ts, token))
+        heap += ((e.ts, cur))
         heaps(e.entity) = heap
 
         // trick to create an RDD
@@ -185,29 +246,29 @@ object eventFunctions {
 
       val merged: Map[String, Heap] = perPartition.reduce { (a, b) =>
         val heaps = mutable.Map[String, Heap]()
-        var token: (Event, Int) = (null, 0)
+        var cur: (Event, Int) = (null, 0)
         for ((entity, heap) <- (a.toSeq ++ b.toSeq).sortBy(_._1)) {
           for ((ts, (ev, k)) <- heap.sorted) {
-            val (e, k) = token
+            val (e, k) = cur
             if (e == null) {
-              token = (ev, 1)
+              cur = (ev, 1)
             } else if (entity == e.entity && ev.eventType == e.eventType) {
               if (ts after e.ts) {
-                token = (ev, k + 1)
+                cur = (ev, k + 1)
               } else {
-                token = (e, k + 1)
+                cur = (e, k + 1)
               }
             } else {
               val heap = if (heaps.contains(e.entity)) heaps(e.entity) else new Heap(n)(TimeEventCountOrdering)
               heap += ((e.ts, (e, k)))
               heaps(e.entity) = heap
-              token = (ev, 1)
+              cur = (ev, 1)
             }
           }
         }
-        val (e, _) = token
+        val (e, _) = cur
         val heap = if (heaps.contains(e.entity)) heaps(e.entity) else new Heap(n)(TimeEventCountOrdering)
-        heap += ((e.ts, token))
+        heap += ((e.ts, cur))
         heaps(e.entity) = heap
         heaps.toMap
       }
@@ -227,12 +288,28 @@ object eventFunctions {
       result.toMap
     }
 
+    /**
+      * Return the current (latest) version of each event. Typically, an event
+      * will have multiple versions if the record required updating due to
+      * some error.
+      *
+      * @return RDD[Event]
+      */
     def current(): RDD[Event] = {
       events.map(ev => ((ev.entity, ev.eventType, ev.ts), ev))
         .reduceByKey((a, b) => if (a.version > b.version) a else b)
         .map(_._2)
     }
 
+    /**
+      * Extract chords, ie. the previous event of the specified type for each
+      * entity. This arrangement is called a chord because the same type of
+      * event is lined up across entities like fingers forming a chord on a
+      * guitar.
+      *
+      * @param eventType String
+      * @return RDD[(String, Option[Event])]
+      */
     def extractChords(eventType: String): RDD[(String, Option[Event])] = {
       val entities = events.map(_.entity).distinct().map(_ -> None)
       val evs = events.filter(_.eventType == eventType)
@@ -246,9 +323,22 @@ object eventFunctions {
 
   }
 
+  /**
+    * Convert event paths as lists to comma separated strings.
+    *
+    * @param eventsByEntity Map[String, Iterable[Event
+    * @return Map[String, String]
+    */
   def paths(eventsByEntity: Map[String, Iterable[Event]]): Map[String, String] =
     eventsByEntity.mapValues(_.map(_.eventType).mkString(","))
 
+  /**
+    * Convert paths of unique events, that contain an occurrence count, to
+    * comma separated strings.
+    *
+    * @param eventsByEntity Map[String, Iterable[(Event, Int)
+    * @return Map[String, String]
+    */
   def uniquePaths(eventsByEntity: Map[String, Iterable[(Event, Int)]]): Map[String, String] =
     eventsByEntity.mapValues(_.map(_._1.eventType).mkString(","))
 
