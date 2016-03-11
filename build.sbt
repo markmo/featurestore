@@ -7,10 +7,6 @@ scalaVersion := "2.10.6"
 resolvers ++= Seq(
   Resolver.sonatypeRepo("releases"),
   DefaultMavenRepository
-//  "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/"
-//  "Akka Repository" at "http://repo.akka.io/releases/",
-//  "cloudera" at "https://repository.cloudera.com/artifactory/cloudera-repos/"
-//  "RoundEights" at "http://maven.spikemark.net/roundeights"
 )
 
 libraryDependencies ++= Seq(
@@ -35,19 +31,19 @@ libraryDependencies ++= Seq(
   "com.github.nscala-time" %% "nscala-time" % "2.6.0",
   "net.openhft" % "zero-allocation-hashing" % "0.5",
   "com.typesafe" % "config" % "1.3.0",
-//  "com.github.melrief" %% "pureconfig" % "0.1.5",
-//  compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
   "org.json4s" %% "json4s-native" % "3.3.0",
-//  "com.osinka.i18n" %% "scala-i18n" % "1.0.0",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   "ai.h2o" % "sparkling-water-core_2.10" % "1.5.2"
     exclude("org.apache.spark", "spark-core_2.10")
     exclude("org.apache.spark", "spark-sql_2.10")
     exclude("org.scala-lang", "scala-library")
-//  "com.roundeights" %% "hasher" % "1.2.0"
 )
 
 ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) }
+
+publishTo := Some("Artifactory Realm" at "http://localhost:8081/artifactory/libs-release-local")
+
+credentials += Credentials("Artifactory Realm", "localhost", "admin", "password")
 
 scalacOptions ++= List(
   "-deprecation",

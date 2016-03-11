@@ -83,7 +83,11 @@ case class NamedSQLSource(sqlContext: SQLContext) extends Source {
     * @return DataFrame
     */
   def apply(ctx: TransformationContext): DataFrame = {
-    val transform = new NamedSQLTransformation(ctx("propsPath").asInstanceOf[String], ctx("name").asInstanceOf[String], ctx("sqlparams").asInstanceOf[Map[String, String]])
+    val transform = new NamedSQLTransformation(
+      ctx("propsPath").asInstanceOf[String],
+      ctx("name").asInstanceOf[String],
+      ctx("sqlparams").asInstanceOf[Map[String, String]]
+    )
     transform(sqlContext)
   }
 
@@ -105,7 +109,10 @@ case class SQLSource(sqlContext: SQLContext) extends Source {
     * @return DataFrame
     */
   def apply(ctx: TransformationContext): DataFrame = {
-    val transform = new SQLTransformation(ctx("sql").asInstanceOf[String], ctx("sqlparams").asInstanceOf[Map[String, String]])
+    val transform = new SQLTransformation(
+      ctx("sql").asInstanceOf[String],
+      ctx("sqlparams").asInstanceOf[Map[String, String]]
+    )
     transform(sqlContext)
   }
 
@@ -127,7 +134,10 @@ case class SQLFileSource(sqlContext: SQLContext) extends Source {
     * @return DataFrame
     */
   def apply(ctx: TransformationContext): DataFrame = {
-    val transform = new SQLFileTransformation(ctx("filename").asInstanceOf[String], ctx("sqlparams").asInstanceOf[Map[String, String]])
+    val transform = new SQLFileTransformation(
+      ctx("filename").asInstanceOf[String],
+      ctx("sqlparams").asInstanceOf[Map[String, String]]
+    )
     transform(sqlContext)
   }
 
