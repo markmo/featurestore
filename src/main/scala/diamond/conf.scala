@@ -12,9 +12,9 @@ case class AppConfig(data: DataConfig,
                     ) {
   def this(conf: Config) = this(
     new DataConfig(conf.getConfig("data")),
-    conf.getObject("user").map({
+    conf.getObject("user").map {
       case (key: String, value: ConfigValue) => (key, value.unwrapped())
-    }).toMap
+    }.toMap
   )
 }
 
@@ -28,15 +28,15 @@ case class DataConfig(baseURI: String,
                      ) {
   def this(conf: Config) = this(
     conf.getString("base-uri"),
-    conf.getObject("meta").map({
+    conf.getObject("meta").map {
       case (key: String, value: ConfigValue) => (key, value.unwrapped().toString)
-    }).toMap,
-    conf.getObject("rectype").map({
+    }.toMap,
+    conf.getObject("rectype").map {
       case (key: String, value: ConfigValue) => (key, value.unwrapped().toString)
-    }).toMap,
-    conf.getObject("filename").map({
+    }.toMap,
+    conf.getObject("filename").map {
       case (key: String, value: ConfigValue) => (key, value.unwrapped().toString)
-    }).toMap,
+    }.toMap,
     new RawSourceConfig(conf.getConfig("raw")),
     new AcquisitionConfig(conf.getConfig("acquisition")),
     new RepositoryConfig(conf.getConfig("repository"))
@@ -78,9 +78,9 @@ case class JobStepRepositoryConfig(path: String, filename: String) {
 case class RawSourceConfig(path: String, tables: Map[String, SourceTable]) {
   def this(conf: Config) = this(
     conf.getString("path"),
-    conf.getObject("tables").map({
+    conf.getObject("tables").map {
       case (tableName: String, configObject: ConfigObject) => (tableName, SourceTable(configObject.toConfig))
-    }).toMap
+    }.toMap
   )
 }
 
@@ -92,18 +92,18 @@ case class AcquisitionConfig(path: String,
 
   def this(conf: Config) = this(
     conf.getString("path"),
-    conf.getObject("hubs").map({
+    conf.getObject("hubs").map {
       case (tableName: String, configObject: ConfigObject) => (tableName, HubTable(configObject.toConfig))
-    }).toMap,
-    conf.getObject("satellites").map({
+    }.toMap,
+    conf.getObject("satellites").map {
       case (tableName: String, configObject: ConfigObject) => (tableName, SatelliteTable(configObject.toConfig))
-    }).toMap,
-    conf.getObject("links").map({
+    }.toMap,
+    conf.getObject("links").map {
       case (tableName: String, configObject: ConfigObject) => (tableName, LinkTable(configObject.toConfig))
-    }).toMap,
-    conf.getObject("mappings").map({
+    }.toMap,
+    conf.getObject("mappings").map {
       case (tableName: String, configObject: ConfigObject) => (tableName, MappingTable(configObject.toConfig))
-    }).toMap
+    }.toMap
   )
 }
 
@@ -144,9 +144,9 @@ object HubTable extends Configurable {
       None,
       None,
       if (conf.hasPath("new-names")) {
-        conf.getObject("new-names").map({
+        conf.getObject("new-names").map {
           case (oldName: String, newName: ConfigValue) => (oldName, newName.unwrapped().toString)
-        }).toMap
+        }.toMap
       } else {
         Map()
       },
@@ -184,9 +184,9 @@ object SatelliteTable extends Configurable {
       None,
       getAsOptList[String]("partitionKeys"),
       if (conf.hasPath("new-names")) {
-        conf.getObject("new-names").map({
+        conf.getObject("new-names").map {
           case (oldName: String, newName: ConfigValue) => (oldName, newName.unwrapped().toString)
-        }).toMap
+        }.toMap
       } else {
         Map()
       },
