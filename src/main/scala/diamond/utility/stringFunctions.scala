@@ -116,24 +116,4 @@ object stringFunctions {
 
   }
 
-  /*
-    * Alternative implementation using a Custom Interpolator.
-    *
-    * @param sc StringContext
-    */
-//  implicit class TemplateHelper(val sc: StringContext) extends AnyVal {
-//
-//    def t(args: Any*): String = {
-//      val strings = sc.parts.iterator
-//      val expressions = args.iterator
-//      val sb = new StringBuilder(strings.next)
-//      while (strings.hasNext) {
-//        sb append expressions.next
-//        sb append strings.next
-//      }
-//      sb.toString
-//    }
-//
-//  }
-
 }

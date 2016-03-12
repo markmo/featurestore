@@ -41,6 +41,9 @@ trait DataLoader extends Serializable {
 
   import conf.data._
 
+  // the following constants are populated from the configuration path
+  // '/data/meta'. (See src/main/resources/application.conf)
+
   val META_ENTITY_ID = meta("entity-id")
   val META_SRC_ENTITY_ID = meta("src-entity-id")
   val META_DST_ENTITY_ID = meta("dst-entity-id")
@@ -77,12 +80,7 @@ trait DataLoader extends Serializable {
 
   val BASE_URI = baseURI
 
-  val customerHubSchema = StructType(
-    StructField("entity_id", StringType) ::
-    StructField("customer_id", StringType) ::
-    StructField("customer_id_type", StringType) ::
-    StructField("process_time", StringType) :: Nil
-  )
+  // schema for the process (job) file
 
   val procSchema = StructType(
     StructField(META_PROCESS_ID, StringType) ::
@@ -203,7 +201,7 @@ trait DataLoader extends Serializable {
     * @param processType String type of process, e.g. "Load Delta", "Load History Full"
     * @param processId String unique process id
     * @param userId String user or system account of process
-    * @param projection Option[List[String]] optional list of fields to load from the source
+    * @param projection Option[List] optional list of fields to load from the source
     *                   table
     * @param validStartTimeField Option[(String, Any)] a tuple with the first value the
     *                            name of the field that contains the valid (business) start
@@ -215,7 +213,7 @@ trait DataLoader extends Serializable {
     *                             name of the field that indicates a record has been deleted
     *                             and the second value the value set if the record has been
     *                             marked for deletion
-    * @param partitionKeys Option[List[String]] an optional list of fields to partition on
+    * @param partitionKeys Option[List] an optional list of fields to partition on
     * @param newNames Map[String, String] a dictionary of new column names mapped to the
     *                 old names
     * @param overwrite Boolean to indicate whether changes should overwrite the Satellite

@@ -40,13 +40,4 @@ case class Event(entity: String,
                  userId: String,
                  rectype: String,
                  version: Int
-                ) extends Serializable {
-//                ) extends Ordered[Event] with Serializable {
-
-//  import scala.math.Ordered.orderingToOrdered
-
-  // order events by natural key (entity, eventType, ts, version)
-//  def compare(that: Event): Int =
-//    (that.entity, that.eventType, that.ts, that.version) compare ((entity, eventType, ts, version))
-
-}
+                ) extends Serializable

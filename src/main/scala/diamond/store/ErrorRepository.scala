@@ -4,6 +4,7 @@ import java.io.OutputStreamWriter
 import java.net.URI
 
 import com.github.tototoshi.csv.CSVWriter
+import diamond.AppConfig
 import diamond.models.TransformationError
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -11,13 +12,15 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 /**
   * Created by markmo on 11/01/2016.
   */
-class ErrorRepository {
+class ErrorRepository(implicit val conf: AppConfig) extends Repository {
 
-  val BASE_URI = "hdfs://localhost:9000/featurestore/control"
+  import conf.data._
 
-  val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
+  val path = s"$baseURI/${repository.error.path}"
 
-  val filename = "errors.csv"
+  val fs = FileSystem.get(new URI(path), new Configuration())
+
+  val filename = repository.error.filename
 
   def save(errors: List[TransformationError]) = {
     val out = fs.create(new Path(filename), true)

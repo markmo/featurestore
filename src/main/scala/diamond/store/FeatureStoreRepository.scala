@@ -4,6 +4,7 @@ import java.io.{InputStreamReader, OutputStreamWriter}
 import java.net.URI
 
 import com.github.tototoshi.csv._
+import diamond.AppConfig
 import diamond.models.Feature
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -11,13 +12,15 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 /**
   * Created by markmo on 12/12/2015.
   */
-class FeatureStoreRepository {
+class FeatureStoreRepository(implicit val conf: AppConfig) extends Repository {
 
-  val BASE_URI = "hdfs://localhost:9000/featurestore/meta"
+  import conf.data._
 
-  val fs = FileSystem.get(new URI(BASE_URI), new Configuration())
+  val path = s"$baseURI/${repository.featureStore.path}"
 
-  val dictFilename = "dictionary.csv"
+  val fs = FileSystem.get(new URI(path), new Configuration())
+
+  val dictFilename = repository.featureStore.filename
 
   def load(): FeatureStore = {
     val store = new FeatureStore

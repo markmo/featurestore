@@ -8,6 +8,10 @@ import diamond.utility.EventChronologicalOrdering
 import org.apache.spark.rdd.RDD
 
 /**
+  *
+  * TODO
+  * replace groupBy
+  *
   * Created by markmo on 12/12/2015.
   */
 object PivotFunctions {

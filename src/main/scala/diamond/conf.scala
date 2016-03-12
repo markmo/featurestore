@@ -7,7 +7,9 @@ import scala.collection.JavaConversions._
 /**
   * Created by markmo on 15/02/2016.
   */
-case class AppConfig(data: DataConfig, user: Map[String, Any]) {
+case class AppConfig(data: DataConfig,
+                     user: Map[String, Any]
+                    ) {
   def this(conf: Config) = this(
     new DataConfig(conf.getConfig("data")),
     conf.getObject("user").map({
@@ -21,8 +23,9 @@ case class DataConfig(baseURI: String,
                       rectype: Map[String, String],
                       filename: Map[String, String],
                       raw: RawSourceConfig,
-                      acquisition: AcquisitionConfig) {
-
+                      acquisition: AcquisitionConfig,
+                      repository: RepositoryConfig
+                     ) {
   def this(conf: Config) = this(
     conf.getString("base-uri"),
     conf.getObject("meta").map({
@@ -35,7 +38,40 @@ case class DataConfig(baseURI: String,
       case (key: String, value: ConfigValue) => (key, value.unwrapped().toString)
     }).toMap,
     new RawSourceConfig(conf.getConfig("raw")),
-    new AcquisitionConfig(conf.getConfig("acquisition"))
+    new AcquisitionConfig(conf.getConfig("acquisition")),
+    new RepositoryConfig(conf.getConfig("repository"))
+  )
+}
+
+case class RepositoryConfig(error: ErrorRepositoryConfig,
+                            featureStore: FeatureStoreRepositoryConfig,
+                            jobStep: JobStepRepositoryConfig
+                           ) {
+  def this(conf: Config) = this(
+    new ErrorRepositoryConfig(conf.getConfig("error")),
+    new FeatureStoreRepositoryConfig(conf.getConfig("feature-store")),
+    new JobStepRepositoryConfig(conf.getConfig("job-step"))
+  )
+}
+
+case class ErrorRepositoryConfig(path: String, filename: String) {
+  def this(conf: Config) = this(
+    conf.getString("path"),
+    conf.getString("filename")
+  )
+}
+
+case class FeatureStoreRepositoryConfig(path: String, filename: String) {
+  def this(conf: Config) = this(
+    conf.getString("path"),
+    conf.getString("filename")
+  )
+}
+
+case class JobStepRepositoryConfig(path: String, filename: String) {
+  def this(conf: Config) = this(
+    conf.getString("path"),
+    conf.getString("filename")
   )
 }
 

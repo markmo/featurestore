@@ -38,7 +38,10 @@ object scoringFunctions {
       // run model on encoded rows
       // if responseAttached = true then output response is the last column as Double
       if (responseAttached) {
-        model.score0(rRecoded.toArray, Array(model.getNumResponseClasses + 1.0)) ++ Array(responseMap(row.getString(row.length - 1)).toDouble)
+        model.score0(
+          rRecoded.toArray,
+          Array(model.getNumResponseClasses + 1.0)) ++ Array(responseMap(row.getString(row.length - 1)).toDouble
+        )
       } else {
         model.score0(rRecoded.toArray, Array(model.getNumResponseClasses + 1.0))
       }

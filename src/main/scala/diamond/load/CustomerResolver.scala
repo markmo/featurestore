@@ -8,6 +8,8 @@ import org.apache.spark.sql.{DataFrame, Row}
 import scala.util.hashing.MurmurHash3
 
 /**
+  * This is not ready and probably not the right approach!
+  *
   * Created by markmo on 10/02/2016.
   */
 class CustomerResolver(implicit val dataLoader: DataLoader) extends Serializable {

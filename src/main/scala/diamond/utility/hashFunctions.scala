@@ -11,6 +11,30 @@ import net.openhft.hashing.LongHashFunction
 object hashFunctions {
 
   /**
+    * Hashes a string key using MD5.
+    *
+    * Used to hash entity keys, which may be composite.
+    *
+    * MD5 is widely supported.
+    *
+    * The number of inserts to get a 50% chance of a hash collision for a hash
+    * of N hex characters is approximately
+    *
+    *   `0.5 + sqrt(0.25 - (2 * log(0.5) * 16 ** N))`
+    *
+    * http://danlinstedt.com/allposts/datavaultcat/datavault-2-0-hashes-versus-natural-keys/
+    *
+    * @param key String
+    * @return String hashed key
+    */
+  def hashKey(key: String) = {
+    val md = MessageDigest.getInstance("MD5")
+    md.update(key.getBytes("UTF-8"))
+    val digest = md.digest()
+    String.format("%032x", new BigInteger(1, digest))
+  }
+
+  /**
     * Hashes a string key using SHA-256.
     *
     * Used to hash entity keys, which may be composite.
@@ -18,7 +42,7 @@ object hashFunctions {
     * @param key String
     * @return String hashed key
     */
-  def hashKey(key: String) = {
+  def sha256HashKey(key: String) = {
     val md = MessageDigest.getInstance("SHA-256")
     md.update(key.getBytes("UTF-8"))
     val digest = md.digest()
