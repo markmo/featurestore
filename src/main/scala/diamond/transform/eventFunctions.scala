@@ -7,7 +7,7 @@ import diamond.models.Event
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.Duration
-import org.joda.time.{DateTime, Days}
+import org.joda.time.{DateTime, Days, Period}
 
 import scala.collection.mutable
 
@@ -25,29 +25,35 @@ object eventFunctions {
 
     import dateFunctions._
 
-    def count(attribute: String, startTime: Date, endTime: Date): Long =
+    def count(attribute: String, startTime: Date, endTime: Date = new Date): Long =
       events.filter(ev => ev.eventType == attribute && ev.ts >= startTime && ev.ts <= endTime)
         .count()
 
-    // TODO
-    // count within interval
+    def count(attribute: String, endTime: Date, interval: Period): Long = {
+      val startTime = new DateTime(endTime) minus interval
+      count(attribute, startTime.toDate, endTime)
+    }
 
-    def countUnique(attribute: String, startTime: Date, endTime: Date): Long =
+    def countUnique(attribute: String, startTime: Date, endTime: Date = new Date): Long =
       events.filter(ev => ev.eventType == attribute && ev.ts >= startTime && ev.ts <= endTime)
         .map(_.value)
         .distinct()
         .count()
 
-    // TODO
-    // countUnique within interval
+    def countUnique(attribute: String, endTime: Date, interval: Period): Long = {
+      val startTime = new DateTime(endTime) minus interval
+      countUnique(attribute, startTime.toDate, endTime)
+    }
 
-    def sum(attribute: String, startTime: Date, endTime: Date): Double =
+    def sum(attribute: String, startTime: Date, endTime: Date = new Date): Double =
       events.filter(ev => ev.eventType == attribute && ev.ts >= startTime && ev.ts <= endTime)
         .map(_.value.toDouble)
         .sum()
 
-    // TODO
-    // sum within interval
+    def sum(attribute: String, endTime: Date, interval: Period): Double = {
+      val startTime = new DateTime(endTime) minus interval
+      sum(attribute, startTime.toDate, endTime)
+    }
 
     def daysSinceLatest(attribute: String, date: Date = new Date): Int = {
       val latest = events.filter(ev => ev.eventType == attribute && ev.ts <= date)
