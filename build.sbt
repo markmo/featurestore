@@ -36,7 +36,14 @@ libraryDependencies ++= Seq(
   "ai.h2o" % "sparkling-water-core_2.10" % "1.5.2"
     exclude("org.apache.spark", "spark-core_2.10")
     exclude("org.apache.spark", "spark-sql_2.10")
-    exclude("org.scala-lang", "scala-library")
+    exclude("org.scala-lang", "scala-library"),
+
+  // topnotch dependencies
+  "io.spray" %% "spray-json" % "1.3.2",
+  //"com.typesafe" % "config" % "1.2.1",
+  "com.iheart" %% "ficus" % "1.0.2"
+  //"joda-time" % "joda-time" % "2.9.1",
+  //"org.joda" % "joda-convert" % "1.8"
 )
 
 ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) }

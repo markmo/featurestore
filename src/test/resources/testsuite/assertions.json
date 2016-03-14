@@ -1,0 +1,11 @@
+{
+  "topnotch": {
+    "assertions": [
+      {
+        "query": "unit_price > 0",
+        "description": "Unit price must be greater than zero",
+        "threshold": 0.01
+      }
+    ]
+  }
+}

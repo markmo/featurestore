@@ -9,6 +9,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 /**
+  * Adapted from Python, hence the mutable style
+  *
   * Created by markmo on 12/03/2016.
   */
 object FileMetadataExtractor {

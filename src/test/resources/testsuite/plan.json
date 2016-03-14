@@ -1,0 +1,14 @@
+{
+  "topnotch": [
+    {
+      "command": "assertion",
+      "externalParamsFile": "assertions.json",
+      "input": {
+        "ref": "/base/superstore_sales.parquet",
+        "onDisk": true
+      },
+      "outputKey": "superstore_assertion_report",
+      "outputPath": "/topnotch/superstore_assertion_report.parquet"
+    }
+  ]
+}
