@@ -10,6 +10,8 @@
 
 * [Scoring](scoring.md)
 
+* [Data Quality Test Automation](dq_testing.md)
+
 * [Terminology](terminology.md)
 
 * [Naming Standards](naming_standards.md)
