@@ -1,6 +1,9 @@
 package common.inference
 
 import common.inference.Quoting.Quoting
+import org.json4s.NoTypeHints
+import org.json4s.native.Serialization
+import org.json4s.native.Serialization.write
 
 /**
   * lineTerminator specifies the character sequence which should
@@ -46,7 +49,12 @@ case class FileMetadata(textQualifier: String,
                         quoting: Quoting,
                         escapeCharacter: Char,
                         inferred: Boolean
-                       )
+                       ) {
+  override def toString: String = {
+    implicit val formats = Serialization.formats(NoTypeHints)
+    write(this)
+  }
+}
 
 object FileMetadata {
 

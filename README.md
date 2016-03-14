@@ -126,6 +126,12 @@ A working hive-site.xml configuration is located under env/.
 
 Hadoop must be restarted after changing any Hive configuration.
 
+If you're still being asked to enter a password when starting or stopping Hadoop, try
+
+    $ chmod go-w ~/
+    $ chmod 700 ~/.ssh
+    $ chmod 600 ~/.ssh/authorized_keys
+
 ## Dependencies
 
 * [Scala 2.10](http://www.scala-lang.org/)

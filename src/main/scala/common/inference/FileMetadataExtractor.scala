@@ -15,6 +15,8 @@ object FileMetadataExtractor {
 
   val commonDelimiters = List(',', '\t', ';', ' ', '|')
 
+  val lineEndings = List("\n", "\r\n", "\r")
+
   val numericPattern = Pattern.compile("""^\s*[+-]?(0(?=\.)|[1-9])[0-9]*(\.[0-9]+)?\s*$""")
 
   val parser = new TypeParser
@@ -24,7 +26,10 @@ object FileMetadataExtractor {
   def setDateFormats(dateFormats: List[String]): Unit =
     parser.register(ParsedDate.getClass, new DateParser(dateFormats))
 
-  def sniff(data: String, lineEnding: String): FileMetadata = {
+  def sniff(data: String): (FileMetadata, List[String]) = {
+
+    // deduce line ending (and return lines as a byproduct)
+    val (lines, lineEnding) = readLines(data)
 
     // try regex method
     var metadata = guessQuoteAndDelimiter(data, lineEnding)
@@ -34,7 +39,11 @@ object FileMetadataExtractor {
       metadata = guessDelimiter(data, lineEnding)
     }
 
-    metadata
+    val columnDelimiter = metadata.columnDelimiter
+    val sample: List[List[String]] = lines.take(20).map(_.split(columnDelimiter).toList)
+    val updated = metadata.copy(header = hasHeader(sample))
+
+    (updated, lines)
   }
 
   /**
@@ -178,10 +187,10 @@ object FileMetadataExtractor {
   def guessQuoteAndDelimiter(data: String, lineEnding: String): FileMetadata = {
     val l = lineEnding
     val regexprs = List(
-      s"""(?<delim>[^\w$l"']+)(?<space> ?)(?<quote>["']).*?(\k<quote>)(\k<delim>)""",
-      s"""(?:^|$l)(?<quote>["']).*?(\k<quote>)(?<delim>[^\w$l"']+)(?<space> ?)""",
-      s"""(?<delim>>[^\w$l"']+)(?<space> ?)(?<quote>["']).*?(\k<quote>)(?:$$|$l)""",
-      s"""(?:^|$l)(?<quote>["']).*?(\k<quote>)(?:$$|$l)"""
+      raw"""(?<delim>[^\w$l"']+)(?<space> ?)(?<quote>["']).*?(\k<quote>)(\k<delim>)""",
+      raw"""(?:^|$l)(?<quote>["']).*?(\k<quote>)(?<delim>[^\w$l"']+)(?<space> ?)""",
+      raw"""(?<delim>>[^\w$l"']+)(?<space> ?)(?<quote>["']).*?(\k<quote>)(?:$$|$l)""",
+      raw"""(?:^|$l)(?<quote>["']).*?(\k<quote>)(?:$$|$l)"""
     )
 
     // embedded construction flag         meaning
@@ -241,7 +250,7 @@ object FileMetadataExtractor {
       val d = Pattern.quote(columnDelimiter)
       val c = Pattern.quote(columnDelimiter(0).toString)
       val q = Pattern.quote(textQualifier)
-      val re = s"""(?m)(($d)|^)\\W*$q[^$c$l]*$q[^$c$l]*$q\W*(($d)|$$)"""
+      val re = raw"""(?m)(($d)|^)\W*$q[^$c$l]*$q[^$c$l]*$q\W*(($d)|$$)"""
       val p = Pattern.compile(re)
       val m = p.matcher(data)
       val doubleQuoted = m.find(0) && (m.group(1) != null)
@@ -252,6 +261,68 @@ object FileMetadataExtractor {
       FileMetadata()
     }
   }
+
+  def readLines(data: String): (List[String], String) = {
+    var minVariance = Double.MaxValue
+    var lines: List[String] = Nil
+    var lineEnding: String = ""
+    for (l <- lineEndings) {
+      val p = Pattern.compile(l)
+      val lns = p.split(data).toList
+      val meanLength = getMeanLineLength(lns)
+      val sd = Math.sqrt(getLineLengthVariance(lns, meanLength))
+      val filtered = removeOutliers(lns, meanLength, sd)
+      val filteredMeanLength = getMeanLineLength(filtered)
+      val filteredVariance = getLineLengthVariance(filtered, filteredMeanLength)
+      if (lns.length > 1 && filteredVariance < minVariance) {
+        minVariance = filteredVariance
+        lines = lns
+        lineEnding = l
+      }
+    }
+    // test line ending for files with a single line
+    if (lineEnding == "") {
+      import scala.util.control.Breaks._
+
+      for (
+        l <- lineEndings
+        if data.replaceAll(raw"[^($l)]+", "").nonEmpty
+      ) {
+        lineEnding = l
+        break
+      }
+    }
+    (lines, lineEnding)
+  }
+
+  private def getMeanLineLength(lines: List[String]): Double = {
+    if (lines.isEmpty) {
+      0d
+    } else {
+      lines.map(_.length).sum / lines.size
+    }
+  }
+
+  private def getLineLengthVariance(lines: List[String], mean: Double): Double = {
+    if (lines.isEmpty) {
+      0d
+    } else {
+      lines.map(line => Math.pow(mean - line.length, 2)).sum / lines.size
+    }
+  }
+
+  /**
+    * Approximate by excluding lines with lengths greater than or equal to
+    * two standard deviations from the mean. (Chauvenet's criterion is a
+    * common method but requires a normal distribution function.)
+    *
+    * @param lines List of lines
+    * @param mean Double mean line length
+    * @param sd Double standard deviation from mean of line lengths
+    * @return List filtered list of lines, removing outliers
+    */
+  private def removeOutliers(lines: List[String], mean: Double, sd: Double): List[String] =
+    lines.filter(line => Math.sqrt(Math.pow(mean - line.length, 2)) / 2 < 2)
 
   /**
     * Creates a dictionary of types of data in each column. If any
