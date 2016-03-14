@@ -75,74 +75,74 @@ The following list describes each component in-depth and demonstrates how to wri
     * For each "externalParamsFile" entry, enter the path to the file relative to the plan. Currently, it is recommended that users place the plan and all associated command files in the same directory. 
     * For each assertion _command_, a report is written to the __~/topnotch__ folder on HDFS in JSON with the name of the command's output key.
 
-```javascript
-{
-  "topnotch": [
+    ```javascript
     {
-      "command": "view",
-      "externalParamsFile": "testView.json",
-      "inputs": [
+      "topnotch": [
         {
-          "ref": "topnotch/viewInput.csv",
-          "onDisk": true,
-          "delimiter": ","
+          "command": "view",
+          "externalParamsFile": "testView.json",
+          "inputs": [
+            {
+              "ref": "topnotch/viewInput.csv",
+              "onDisk": true,
+              "delimiter": ","
+            }
+          ],
+          "outputKey": "viewKey",
+          "cache": true
+        },
+        {
+          "command": "diff",
+          "externalParamsFile": "testDiff.json",
+          "input1": {
+            "ref": "topnotch/currentLoans.parquet",
+            "onDisk": true
+          },
+          "input1Name": "cur",
+          "input2": {
+            "ref": "topnotch/oldLoans.parquet",
+            "onDisk": true
+          },
+          "input2Name": "old",
+          "outputKey": "diffKey",
+          "outputPath": "topnotch/diffOutput.parquet"
+        },
+        {
+          "command": "assertion",
+          "externalParamsFile": "testAssertion.json",
+          "input": {
+            "ref": "viewKey",
+            "onDisk": false
+          },
+          "outputKey": "assertionKey",
+          "outputPath": "topnotch/assertionOutput.parquet"
         }
-      ],
-      "outputKey": "viewKey",
-      "cache": true
-    },
-    {
-      "command": "diff",
-      "externalParamsFile": "testDiff.json",
-      "input1": {
-        "ref": "topnotch/currentLoans.parquet",
-        "onDisk": true
-      },
-      "input1Name": "cur",
-      "input2": {
-        "ref": "topnotch/oldLoans.parquet",
-        "onDisk": true
-      },
-      "input2Name": "old",
-      "outputKey": "diffKey",
-      "outputPath": "topnotch/diffOutput.parquet"
-    },
-    {
-      "command": "assertion",
-      "externalParamsFile": "testAssertion.json",
-      "input": {
-        "ref": "viewKey",
-        "onDisk": false
-      },
-      "outputKey": "assertionKey",
-      "outputPath": "topnotch/assertionOutput.parquet"
+      ]
     }
-  ]
-}
-```
+    ```
 
 2. The _Assertion_ Runner: For each assertion command in a plan, this applies a number of _assertions_ to a data set, produces a dataframe containing all the rows declared invalid by any _assertion_, and creates a summary of how well the  data set abides by the assertions run against it.
     * The query uses syntax from the where clause of a HiveQL query. Each query (where clause) defines rows that are declared valid. Those not selected by the where clause are declared invalid.
     * The format for an assertion json file is:
 
-```javascript
-{
-  "topnotch" : {
-    "assertions" : [
-      {
-        "query": "loanBal > 0",
-        "description": "Loan balances are positive",
-        "threshold": 0.01
-      },
-      {
-        "query": "loanBal > 1",
-        "description": "Loan balances are greater than 1",
-        "threshold": 0.02
+    ```javascript
+    {
+      "topnotch" : {
+        "assertions" : [
+          {
+            "query": "loanBal > 0",
+            "description": "Loan balances are positive",
+            "threshold": 0.01
+          },
+          {
+            "query": "loanBal > 1",
+            "description": "Loan balances are greater than 1",
+            "threshold": 0.02
+          }
+        ]
       }
-    ]
-  }
-}
-```
+    }
+    ```
 
 3. The _Diff_ Creator: For diff each command in a plan, this joins two data sets on columns that form a unique key and then compares the values in other columns of the data sets.
     * Columns in equal locations in the "joinColumns" arrays are the keys to join the two data sets.
@@ -151,43 +151,43 @@ The following list describes each component in-depth and demonstrates how to wri
     * Columns can be joined and compared even if they have different names because comparisons are determined by positions in the "joinColumns" and "diffColumns" arrays.
     * The format for a _diff_ json file is:
 
-```javascript
-{
-  "topnotch": {
-    "input1Columns": {
-      "joinColumns": [
-        "loanID",
-        "poolNum"
-      ],
-      "diffColumns": [
-        "loanBal"
-      ]
-    },
-    "input2Columns": {
-      "joinColumns": [
-        "loanIDOld",
-        "poolNumOld"
-      ],
-      "diffColumns": [
-        "loanBalOld"
-      ]
+    ```javascript
+    {
+      "topnotch": {
+        "input1Columns": {
+          "joinColumns": [
+            "loanID",
+            "poolNum"
+          ],
+          "diffColumns": [
+            "loanBal"
+          ]
+        },
+        "input2Columns": {
+          "joinColumns": [
+            "loanIDOld",
+            "poolNumOld"
+          ],
+          "diffColumns": [
+            "loanBalOld"
+          ]
+        }
+      }
     }
-  }
-}
-```
+    ```
 
 4. The _View_ Creator: For each view command in a plan, this takes in one or more data sets and produces a single dataframe based on a HiveQL query defined by the user. Use this to transform data into a form against which _diffs_ and _assertions_ can be run .
     * The inputs specified in the _command_ file will be loaded as tables with names specified in the "tableAliases" array for the query.
     * The result of the query is the _command_'s output.
     * The format for a _view_ json file is:
 
-```javascript
-{
-  "topnotch": {
-    "tableAliases": [
-      "loanData"
-    ],
-    "query": "select * from loanData"
-  }
-}
-```
+    ```javascript
+    {
+      "topnotch": {
+        "tableAliases": [
+          "loanData"
+        ],
+        "query": "select * from loanData"
+      }
+    }
+    ```
