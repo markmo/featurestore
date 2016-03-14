@@ -2,8 +2,8 @@ package diamond.transform
 
 import java.util.{Calendar, Date}
 
+import common.utility._
 import diamond.models.Event
-import diamond.utility._
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.Duration
@@ -23,7 +23,7 @@ object eventFunctions {
     */
   implicit class RichEvents(val events: RDD[Event]) extends AnyVal {
 
-    import diamond.utility.dateFunctions._
+    import dateFunctions._
 
     def count(attribute: String, startTime: Date, endTime: Date): Long =
       events.filter(ev => ev.eventType == attribute && ev.ts >= startTime && ev.ts <= endTime)

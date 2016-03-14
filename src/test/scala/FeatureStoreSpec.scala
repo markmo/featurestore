@@ -1,9 +1,9 @@
 import java.util.Calendar
 
+import common.utility.dateFunctions._
+import common.utility.hashFunctions._
 import diamond.models.{AttributeType, Event, Feature}
-import diamond.store.{FeatureStoreRepository, FeatureStore}
-import diamond.utility.dateFunctions._
-import diamond.utility.hashFunctions._
+import diamond.store.{FeatureStore, FeatureStoreRepository}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StringType, StructField, StructType}

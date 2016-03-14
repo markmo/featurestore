@@ -1,8 +1,8 @@
 package diamond.transform.table
 
+import common.utility.stringFunctions
 import diamond.transform.TransformationContext
 import diamond.transform.sql.SQLLoader
-import diamond.utility.stringFunctions
 import org.apache.spark.sql.DataFrame
 
 /**

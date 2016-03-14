@@ -282,13 +282,13 @@ The following template Sinks exist.
 
 The following library functions exist.
 
-* [convertStringToDate](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/dateFunctions.scala) - Converts a date string of a given pattern to a Date object.
-* [formatDateString](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/dateFunctions.scala) - Formats a date string of a given pattern to a conformed format (yyyy-MM-dd).
-* [formatDateTimeString](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/dateFunctions.scala) - Formats a date string of a given pattern to a conformed date and time format (yyyy-MM-dd HH:mm:ss).
-* [convertStringToTimestamp](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/dateFunctions.scala) - Converts a date string of a given pattern to epoch (unix) time, defined as the number of seconds that have elapsed since 00:00:00 Coordinated Universal Time (UTC), Thursday, 1 January 1970, not counting leap seconds.
-* [hashKey](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/hashFunctions.scala) - Hashes a string key using SHA-256. Used to hash entity keys, which may be composite.
-* [template](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/stringFunctions.scala) - Using the "pimp my library" pattern to render a string template substituting variables.
-* [score](https://github.com/markmo/featurestore/blob/master/src/main/scala/diamond/utility/scoringFunctions.scala) - Score DataFrame using POJO model from H2O.
+* [convertStringToDate](https://github.com/markmo/featurestore/blob/master/src/main/scala/common/utility/dateFunctions.scala) - Converts a date string of a given pattern to a Date object.
+* [formatDateString](https://github.com/markmo/featurestore/blob/master/src/main/scala/common/utility/dateFunctions.scala) - Formats a date string of a given pattern to a conformed format (yyyy-MM-dd).
+* [formatDateTimeString](https://github.com/markmo/featurestore/blob/master/src/main/scala/common/utility/dateFunctions.scala) - Formats a date string of a given pattern to a conformed date and time format (yyyy-MM-dd HH:mm:ss).
+* [convertStringToTimestamp](https://github.com/markmo/featurestore/blob/master/src/main/scala/common/utility/dateFunctions.scala) - Converts a date string of a given pattern to epoch (unix) time, defined as the number of seconds that have elapsed since 00:00:00 Coordinated Universal Time (UTC), Thursday, 1 January 1970, not counting leap seconds.
+* [hashKey](https://github.com/markmo/featurestore/blob/master/src/main/scala/common/utility/hashFunctions.scala) - Hashes a string key using SHA-256. Used to hash entity keys, which may be composite.
+* [template](https://github.com/markmo/featurestore/blob/master/src/main/scala/common/utility/stringFunctions.scala) - Using the "pimp my library" pattern to render a string template substituting variables.
+* [score](https://github.com/markmo/featurestore/blob/master/src/main/scala/common/utility/scoringFunctions.scala) - Score DataFrame using POJO model from H2O.
 
 These functions may be accessed by including the following import statement.
 

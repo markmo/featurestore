@@ -1,6 +1,6 @@
 package diamond.transform.sql
 
-import diamond.utility.stringFunctions
+import common.utility.stringFunctions
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
 import scala.io.Source

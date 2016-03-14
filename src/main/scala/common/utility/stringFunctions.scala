@@ -1,4 +1,4 @@
-package diamond.utility
+package common.utility
 
 import scala.annotation.tailrec
 
@@ -15,9 +15,9 @@ object stringFunctions {
   def camelize(str: String, startUpper: Boolean = false): String = {
     def loop(x: List[Char]): List[Char] = x match {
       case ('_' | '-') :: ('_' | '-') :: rest => loop('_' :: rest)
-      case ('_' | '-') :: c :: rest => Character.toUpperCase(c) :: loop(rest)
+      case ('_' | '-') :: ch :: rest => Character.toUpperCase(ch) :: loop(rest)
       case ('_' | '-') :: Nil => Nil
-      case c :: rest => c :: loop(rest)
+      case ch :: rest => ch :: loop(rest)
       case Nil => Nil
     }
     if (str == null) {
@@ -28,6 +28,23 @@ object stringFunctions {
       loop(str.toList).mkString
     }
   }
+
+  def underscore(str: String): String = str.replaceAll("\\s+", "_")
+
+  def countSubstring(str: String, sub: String): Int =
+    if (str == null || sub == null || str.length < sub.length) {
+      0
+    } else {
+
+      @tailrec
+      def loop(acc: Int, i: Int): Int =
+        str.indexOf(sub, i) match {
+          case -1 => acc
+          case j => loop(acc + 1, j + sub.length)
+        }
+
+      loop(0, 0)
+    }
 
   /**
     * Convert map of format { some-key: anyval } to { someKey: str }

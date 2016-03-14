@@ -1,7 +1,7 @@
 package diamond.transform.table
 
+import common.utility.stringFunctions
 import diamond.transform.TransformationContext
-import diamond.utility.stringFunctions
 import org.apache.spark.sql.DataFrame
 
 import scala.io.Source

@@ -1,4 +1,4 @@
-package diamond.utility
+package common.utility
 
 import scala.annotation.tailrec
 

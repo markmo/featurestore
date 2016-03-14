@@ -35,13 +35,14 @@ case class Fact(entity: String,
                 processDate: Date,
                 userId: String,
                 rectype: String,
-                version: Int      // trial - processTime could be used instead
-               ) extends Ordered[Fact] with Serializable {
+                version: Int // trial - processTime could be used instead
+               ) extends Serializable
+//               ) extends Ordered[Fact] with Serializable {
 
-  import scala.math.Ordered.orderingToOrdered
+//  import scala.math.Ordered.orderingToOrdered
 
   // order facts by natural key (entity, attribute, ts, version)
-  def compare(that: Fact): Int =
-    -((entity, attribute, ts, version) compare((that.entity, that.attribute, that.ts, that.version)))
+//  def compare(that: Fact): Int =
+//    (that.entity, that.attribute, that.ts, that.version) compare ((this.entity, this.attribute, this.ts, this.version))
 
-}
+//}

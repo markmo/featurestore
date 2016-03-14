@@ -1,7 +1,7 @@
 import java.net.URI
 
+import common.utility.hashFunctions._
 import diamond.load.HiveDataLoader
-import diamond.utility.hashFunctions._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.sql.functions._

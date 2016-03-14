@@ -2,11 +2,10 @@ package diamond.transform.table
 
 import java.util.Calendar
 
+import common.utility.sortFunctions._
 import diamond.models.{ErrorThresholdReachedException, TransformationError}
-import diamond.store.ErrorRepository
 import diamond.transform.row.{AppendColumnRowTransformation, RowTransformation}
 import diamond.transform.{Pipeline, TransformationContext}
-import diamond.utility.sortFunctions._
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 
@@ -28,7 +27,6 @@ class RowTransformationPipeline(private var nm: String) extends TableTransformat
   val transformations = mutable.Set[RowTransformation]()
 
   def apply(df: DataFrame, ctx: TransformationContext): DataFrame = {
-    val errorRepository = new ErrorRepository
     val results = try {
       // loop through and execute transformations
       df.rdd.map {
@@ -46,10 +44,11 @@ class RowTransformationPipeline(private var nm: String) extends TableTransformat
               r
           })
       }
-    } finally {
-      val errors = ctx("errors").asInstanceOf[List[TransformationError]]
-      if (errors.nonEmpty)
-        errorRepository.save(errors)
+      // can't write in the middle of a task. accumulate errors and write at end
+//    } finally {
+//      val errors = ctx("errors").asInstanceOf[List[TransformationError]]
+//      if (errors.nonEmpty)
+//        errorRepository.save(errors)
     }
 
     val schema = ctx(RowTransformation.SCHEMA_KEY).asInstanceOf[StructType]

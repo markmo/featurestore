@@ -1,4 +1,4 @@
-package diamond.utility
+package common.utility
 
 import hex.genmodel.GenModel
 import org.apache.spark.rdd.RDD

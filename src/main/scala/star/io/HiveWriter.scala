@@ -13,7 +13,7 @@ class HiveWriter(implicit val conf: StarConfig) extends Writer {
       .write
       .format("orc")
       .mode(SaveMode.Overwrite)
-      .saveAsTable(s"${tableName}_sample")
+      .saveAsTable(s"${tableName}")
   }
 
   def writeSample(df: DataFrame, tableName: String, maxSize: Long): Unit = {

@@ -2,9 +2,9 @@ package diamond.transform
 
 import java.util.Date
 
+import common.utility.EventChronologicalOrdering
 import diamond.models.Event
 import diamond.store.FeatureStore
-import diamond.utility.EventChronologicalOrdering
 import org.apache.spark.rdd.RDD
 
 /**

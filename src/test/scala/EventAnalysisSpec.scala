@@ -1,8 +1,8 @@
 import java.util.Calendar
 
+import common.utility.dateFunctions._
 import diamond.models.Event
 import diamond.transform.eventFunctions._
-import diamond.utility.dateFunctions._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.streaming.Duration

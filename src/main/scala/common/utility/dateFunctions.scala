@@ -1,4 +1,4 @@
-package diamond.utility
+package common.utility
 
 import java.text.SimpleDateFormat
 import java.util.Date

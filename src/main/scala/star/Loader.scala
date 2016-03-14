@@ -3,12 +3,12 @@ package star
 import java.sql.Timestamp
 import java.util.{Calendar, Date}
 
-import diamond.utility.hashFunctions._
-import diamond.utility.udfs._
+import common.utility.hashFunctions._
+import common.utility.udfs._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
-import star.io.{JdbcReader, HiveWriter}
+import star.io.{HiveWriter, JdbcReader}
 
 /**
   * Created by markmo on 12/03/2016.
@@ -115,7 +115,7 @@ class Loader(implicit val sqlContext: SQLContext, implicit val conf: StarConfig)
     if (distinct.count() > 0) {
       val projection = dimFields ++ attrs
       val dimDF = distinct
-        .select(projection.map(col(_).cast(StringType)): _*)
+        .select(projection.map(field => col(field).cast(StringType).as(field)): _*)
         .withColumn("start_time", current_timestamp().cast(TimestampType))
         .withColumn("end_time", lit(defaultEndDate).cast(TimestampType))
         .withColumn("process_id", lit(processId))
@@ -130,6 +130,10 @@ class Loader(implicit val sqlContext: SQLContext, implicit val conf: StarConfig)
       val renamed = projection.foldLeft(dimDF) {
         case (d: DataFrame, field: String) => d.withColumnRenamed(field, field.toLowerCase)
       }
+
+      // TODO
+      // use the `monotonicallyIncreasingId()` function instead?
+
       val withId = renamed.rdd.zipWithUniqueId.map {
         case (r: Row, id: Long) => Row.fromSeq(id +: r.toSeq)
       }
@@ -164,7 +168,7 @@ class Loader(implicit val sqlContext: SQLContext, implicit val conf: StarConfig)
     }
     if (distinct.count > 0) {
       val dimDF = distinct
-        .select(col(dimField).cast(StringType) :: attrs.map(col): _*)
+        .select(col(dimField).cast(StringType).as(dimField) :: attrs.map(col): _*)
         .withColumn("start_time", current_timestamp().cast(TimestampType))
         .withColumn("end_time", lit(defaultEndDate).cast(TimestampType))
         .withColumn("process_id", lit(processId))
@@ -215,7 +219,7 @@ class Loader(implicit val sqlContext: SQLContext, implicit val conf: StarConfig)
 
     } else {
       val cal = Calendar.getInstance
-      cal.set(9999, 11, 1)
+      cal.set(9999, 11, 31, 0, 0, 0)
       val defaultEndDate = cal.getTime
       val hashedKey = hashKey(unknown)
       val fields = -1L :: dimFields.map(_ => unknown) ++
@@ -266,7 +270,7 @@ class Loader(implicit val sqlContext: SQLContext, implicit val conf: StarConfig)
 
     val out = ex
       .join(all, ex("id") === all("id") && ex("version") === all("version"), "left_outer")
-      .where(all("id") === 0)
+      .where(all("id").isNull)
       .select(fields.map(ex(_)): _*)
       .unionAll(all)
 

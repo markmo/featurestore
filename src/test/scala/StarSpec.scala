@@ -1,5 +1,6 @@
 import com.typesafe.config.ConfigFactory
-import star.io.JdbcReader
+import common.utility.stringFunctions._
+import star.io.{CSVReader, Reader}
 import star.{Loader, StarConfig}
 
 /**
@@ -7,21 +8,34 @@ import star.{Loader, StarConfig}
   */
 class StarSpec extends UnitSpec {
 
-  override implicit val conf = new StarConfig(ConfigFactory.load("star.conf"))
+  val starConf = new StarConfig(ConfigFactory.load("star.conf"))
 
-  @transient val jdbcReader = new JdbcReader
-  @transient val loader = new Loader
+  @transient var csvReader: Reader = _
+  @transient var loader: Loader = _
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    csvReader = new CSVReader()(sqlContext, starConf)
+    loader = new Loader()(sqlContext, starConf)
+    sqlContext.sql("create schema if not exists test")
+  }
 
   "Star Loader" should "dimensionalize a denormalized source" in {
 
-    val source = "PABLO_DWH.T0200_ITAM_INCIDENTS_DH_NEW"
-    val df = jdbcReader.read(source)
-    val (dimFields, attrs) = conf.dims(source)(4)
-    loader.loadDim(df, dimFields, attrs, "test", "test", source)
+    val source = "superstore_sales.csv"
+    val path = getClass.getResource(s"base/$source").getPath
+    val df = csvReader.read(path)
+    val renamed = df.schema.fieldNames.foldLeft(df) {
+      case (d, field) => d.withColumnRenamed(field, underscore(field.toLowerCase))
+    }
+    val (dimFields, attrs) = starConf.dims(source).head
+    loader.loadDim(renamed, dimFields, attrs, "test", "test", source)
 
-    val dimCount = sqlContext.sql("select count(*) from itam.dim_priority").first()(0)
+    sqlContext.sql("select * from test.dim_order_priority").show(10)
 
-    dimCount should be (4)
+    val dimCount = sqlContext.sql("select count(*) from test.dim_order_priority").first()(0)
+
+    dimCount should be (6)
   }
 
 }

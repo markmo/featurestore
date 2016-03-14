@@ -1,4 +1,4 @@
-import diamond.utility.stringFunctions._
+import common.utility.stringFunctions._
 
 /**
   * Created by markmo on 12/03/2016.

@@ -1,5 +1,7 @@
 package star
 
+import java.util.{ArrayList => JList}
+
 import com.typesafe.config.{Config, ConfigValue}
 import diamond.Configurable
 
@@ -22,22 +24,22 @@ case class StarConfig(schema: String,
                      ) {
   def this(conf: Config) = this(
     conf.getString("schema"),
-    conf.getString("baseURI"),
-    conf.getString("parquetPath"),
-    conf.getString("parquetSamplePath"),
+    conf.getString("base-uri"),
+    conf.getString("parquet-path"),
+    conf.getString("parquet-sample-path"),
     conf.getString("unknown"),
-    conf.getString("defaultEndDate"),
+    conf.getString("default-end-date"),
     conf.getLong("sample-size"),
     EnvConfig(conf.getConfig("env")),
-    conf.getObject("dims").map { case (key: String, value: ConfigValue) =>
-      (key, value.unwrapped().asInstanceOf[List[List[List[String]]]].map { xs =>
-        (xs(0), xs(1))
-      })
+    conf.getObject("dims").map { case (source: String, value: ConfigValue) =>
+      (source, value.unwrapped().asInstanceOf[JList[JList[JList[String]]]].map { xs =>
+        (xs(0).toList, xs(1).toList)
+      }.toList)
     }.toMap,
-    conf.getObject("facts").map { case (key: String, value: ConfigValue) =>
-      (key, value.unwrapped().asInstanceOf[List[String]])
+    conf.getObject("facts").map { case (source: String, value: ConfigValue) =>
+      (source, value.unwrapped().asInstanceOf[JList[String]].toList)
     }.toMap,
-    conf.getStringList("tables")
+    conf.getStringList("tables").toList
   )
 }
 

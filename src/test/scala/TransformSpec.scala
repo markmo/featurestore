@@ -1,4 +1,5 @@
 import diamond.io.{CSVSink, CSVSource}
+import diamond.store.ErrorRepository
 import diamond.transform.TransformationContext
 import diamond.transform.row.{AppendColumnRowTransformation, RowTransformation}
 import diamond.transform.sql.NamedSQLTransformation
@@ -15,6 +16,8 @@ import scala.util.Try
 class TransformSpec extends UnitSpec {
 
   @transient var rawDF: DataFrame = _
+
+  implicit val errorRepository = new ErrorRepository
 
   val path = getClass.getResource("events_sample.csv").getPath
 

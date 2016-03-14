@@ -5,11 +5,11 @@ import java.nio.charset.Charset
 import java.sql.{Date, Timestamp}
 
 import com.github.nscala_time.time.Imports._
+import common.utility.dateFunctions._
+import common.utility.hashFunctions._
+import common.utility.stringFunctions._
+import common.utility.udfs._
 import diamond.AppConfig
-import diamond.utility.dateFunctions._
-import diamond.utility.hashFunctions._
-import diamond.utility.stringFunctions._
-import diamond.utility.udfs._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.rdd.RDD
@@ -70,9 +70,9 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
     val sqlContext = df.sqlContext
     sqlContext.udf.register("hashKey", hashKey(_: String))
     sqlContext.udf.register("convertStringToTimestamp", convertStringToTimestamp(_: String, _: String))
-    val renamed = newNames.foldLeft(df)({
+    val renamed = newNames.foldLeft(df) {
       case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
-    })
+    }
 
     // dedup
     val in = renamed.distinct()
@@ -238,9 +238,9 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
 
     } else {
       val entities = sqlContext.sql(sql)
-      val renamed = newNames.foldLeft(entities)({
+      val renamed = newNames.foldLeft(entities) {
         case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
-      })
+      }
       renamed.cache()
 
       val writer = renamed.write
@@ -295,9 +295,9 @@ class ParquetDataLoader(implicit val conf: AppConfig) extends DataLoader {
     } else {
       df.distinct()
     }
-    val renamed = newNames.foldLeft(distinct)({
+    val renamed = newNames.foldLeft(distinct) {
       case (d, (oldName, newName)) => d.withColumnRenamed(oldName, newName)
-    })
+    }
     val pk = idFields.map(f => newNames.getOrElse(f, f))
     val baseNames = renamed.schema.fieldNames.toList diff pk
     val t = renamed
