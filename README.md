@@ -5,7 +5,7 @@
 A framework for feature engineering using Spark. Capabilities include:
 
 * [Transformation framework](./docs/transformations.md) for building data preparation pipelines using function composition (src/main/scala/diamond/transform/)
-* [Change Data Capture](./src/main/scala/diamond/load/README.md) functionality to determine changes from fresh data feeds and ensure no duplicates (src/main/scala/diamond/load/)
+* [Sequential file update](./src/main/scala/diamond/load/README.md) functionality to determine changes from fresh data feeds and ensure no duplicates (src/main/scala/diamond/load/)
 * Event feature engineering (./src/main/scala/diamond/transform/eventFunctions) for analyzing interaction timelines and [customer journey mapping](./docs/customer_journey_mapping.md)
 * Creating a flexible, shared Feature Store (src/main/scala/diamond/store/)
 * A [Data Quality test automation framework](./docs/dq_testing.md)

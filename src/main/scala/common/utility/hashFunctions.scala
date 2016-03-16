@@ -50,7 +50,7 @@ object hashFunctions {
   }
 
   /**
-    * Fast hashing for change data capture.
+    * Fast hashing for sequential file update.
     * Uses the xxHash algorithm.
     *
     * @see https://github.com/OpenHFT/Zero-Allocation-Hashing

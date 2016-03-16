@@ -65,7 +65,7 @@ class LoadSatelliteOverwriteParquetSpec extends UnitSpec {
     customers.count() should be (20010)
   }
 
-  it should "perform change data capture updating changed records by overwriting the Parquet file" in {
+  it should "perform sequential file update of changed records by overwriting the Parquet file" in {
     val rawSourcePath = raw.tables("demographics-delta-updates").path
     val updates = sqlContext.read.load(rawSourcePath)
 

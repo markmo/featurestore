@@ -65,7 +65,7 @@ class LoadSatelliteHiveSpec extends UnitSpec {
     customers.count() should be (20010)
   }
 
-  it should "perform change data capture using Hive" in {
+  it should "perform sequential file update using Hive" in {
     val rawSourcePath = raw.tables("demographics-delta-updates").path
     val updates = sqlContext.read.load(rawSourcePath)
 
